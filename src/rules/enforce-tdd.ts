@@ -5,7 +5,7 @@ import type { Action, RawSessionEvent } from '../types.js'
 import type { RuleContext, RuleResult } from './contract.js'
 import { countNewTestNodes } from './matchers/count-new-test-nodes.js'
 import { inferLanguage } from './matchers/languages/index.js'
-import { trimHistory, type HistoryWindow } from './utils/trim-history.js'
+import { trimHistory, type HistoryWindow } from './trim-history.js'
 
 const DEFAULT_MAX_EVENTS = 10
 const DEFAULT_MAX_CONTENT_CHARS = 6000

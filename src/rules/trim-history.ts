@@ -1,4 +1,4 @@
-import type { RawSessionEvent } from '../../types.js'
+import type { RawSessionEvent } from '../types.js'
 
 export type HistoryWindow = {
   maxEvents: number

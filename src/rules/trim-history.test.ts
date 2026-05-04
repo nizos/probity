@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import type { RawSessionEvent } from '../../types.js'
+import type { RawSessionEvent } from '../types.js'
 import { trimHistory } from './trim-history.js'
 
 describe('trimHistory', () => {
