@@ -71,6 +71,7 @@
   "devDependencies": {
     "@ast-grep/lang-csharp": "^0.0.6",
     "@ast-grep/lang-python": "^0.0.6",
+    "@ast-grep/lang-ruby": "^0.0.7",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@types/node": "^25.6.0",
@@ -89,13 +90,17 @@
   },
   "peerDependencies": {
     "@ast-grep/lang-csharp": "*",
-    "@ast-grep/lang-python": "*"
+    "@ast-grep/lang-python": "*",
+    "@ast-grep/lang-ruby": "*"
   },
   "peerDependenciesMeta": {
     "@ast-grep/lang-csharp": {
       "optional": true
     },
     "@ast-grep/lang-python": {
+      "optional": true
+    },
+    "@ast-grep/lang-ruby": {
       "optional": true
     }
   },

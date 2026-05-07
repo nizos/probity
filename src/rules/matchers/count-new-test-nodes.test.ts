@@ -4,6 +4,7 @@ import { countNewTestNodes } from './count-new-test-nodes.js'
 import { csharp } from './languages/csharp.js'
 import { javascript } from './languages/javascript.js'
 import { python } from './languages/python.js'
+import { ruby } from './languages/ruby.js'
 import { typescript } from './languages/typescript.js'
 
 describe.each([
@@ -156,5 +157,63 @@ describe('countNewTestNodes (csharp)', () => {
     }`
 
     expect(countNewTestNodes(before, after, csharp)).toBe(1)
+  })
+})
+
+describe('countNewTestNodes (ruby)', () => {
+  it('counts a single it() block (RSpec) as a new test node', () => {
+    const before = `describe 'Calc' do\nend\n`
+    const after = `describe 'Calc' do\n  it 'adds' do\n  end\nend\n`
+
+    expect(countNewTestNodes(before, after, ruby)).toBe(1)
+  })
+
+  it('counts a specify() block (RSpec) as a new test node', () => {
+    const before = `describe 'Calc' do\nend\n`
+    const after = `describe 'Calc' do\n  specify 'adds' do\n  end\nend\n`
+
+    expect(countNewTestNodes(before, after, ruby)).toBe(1)
+  })
+
+  it('counts an xit() block (RSpec skipped) as a new test node', () => {
+    const before = `describe 'Calc' do\nend\n`
+    const after = `describe 'Calc' do\n  xit 'adds' do\n  end\nend\n`
+
+    expect(countNewTestNodes(before, after, ruby)).toBe(1)
+  })
+
+  it('counts a fit() block (RSpec focused) as a new test node', () => {
+    const before = `describe 'Calc' do\nend\n`
+    const after = `describe 'Calc' do\n  fit 'adds' do\n  end\nend\n`
+
+    expect(countNewTestNodes(before, after, ruby)).toBe(1)
+  })
+
+  it('counts a def test_*() method (Minitest/Test::Unit) as a new test node', () => {
+    const before = `class CalcTest\nend\n`
+    const after = `class CalcTest\n  def test_addition\n  end\nend\n`
+
+    expect(countNewTestNodes(before, after, ruby)).toBe(1)
+  })
+
+  it('returns 0 when an existing it() is renamed but no test is added', () => {
+    const before = `describe 'Calc' do\n  it 'adds' do\n  end\nend\n`
+    const after = `describe 'Calc' do\n  it 'adds two numbers' do\n  end\nend\n`
+
+    expect(countNewTestNodes(before, after, ruby)).toBe(0)
+  })
+
+  it('returns 2 when two it() blocks are added in a single change', () => {
+    const before = `describe 'Calc' do\nend\n`
+    const after = `describe 'Calc' do\n  it 'adds' do\n  end\n  it 'subtracts' do\n  end\nend\n`
+
+    expect(countNewTestNodes(before, after, ruby)).toBe(2)
+  })
+
+  it('does not count a new describe() block with no tests inside as a test node', () => {
+    const before = ``
+    const after = `describe 'Calc' do\nend\n`
+
+    expect(countNewTestNodes(before, after, ruby)).toBe(0)
   })
 })
