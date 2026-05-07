@@ -91,7 +91,7 @@ The Copilot Chat extension (VS Code) reads hooks from `.github/hooks/probity.jso
     "preToolUse": [
       {
         "type": "command",
-        "bash": "npx @nizos/probity --agent github-copilot-chat"
+        "command": "npx @nizos/probity --agent github-copilot-chat"
       }
     ]
   }
@@ -111,7 +111,7 @@ GitHub Copilot CLI reads hooks from the same `.github/hooks/probity.json` — th
     "preToolUse": [
       {
         "type": "command",
-        "bash": "npx @nizos/probity --agent github-copilot"
+        "command": "npx @nizos/probity --agent github-copilot"
       }
     ]
   }
