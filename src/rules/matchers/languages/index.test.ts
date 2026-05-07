@@ -4,6 +4,7 @@ import { csharp } from './csharp.js'
 import { inferLanguage } from './index.js'
 import { javascript } from './javascript.js'
 import { python } from './python.js'
+import { ruby } from './ruby.js'
 import { typescript } from './typescript.js'
 
 describe('inferLanguage', () => {
@@ -27,8 +28,12 @@ describe('inferLanguage', () => {
     expect(inferLanguage('src/Foo.cs')).toBe(csharp)
   })
 
+  it('returns the ruby module for a .rb file', () => {
+    expect(inferLanguage('spec/foo_spec.rb')).toBe(ruby)
+  })
+
   it('returns a registered language for any extension declared on its module', () => {
-    for (const lang of [typescript, javascript, python, csharp]) {
+    for (const lang of [typescript, javascript, python, csharp, ruby]) {
       for (const ext of lang.extensions) {
         expect(inferLanguage(`src/foo${ext}`)).toBe(lang)
       }
