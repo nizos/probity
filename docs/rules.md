@@ -69,6 +69,7 @@ When a write to a recognised language adds exactly one new test node, the rule r
 | JavaScript | `.js`         | (built-in)              | `it()` / `test()` and their `.skip`, `.only`, `.each` variants           |
 | Python     | `.py`         | `@ast-grep/lang-python` | `def test_*` (pytest convention)                                         |
 | C#         | `.cs`         | `@ast-grep/lang-csharp` | `[Fact]` / `[Theory]` (xUnit), `[Test]` (NUnit), `[TestMethod]` (MSTest) |
+| Ruby       | `.rb`         | `@ast-grep/lang-ruby`   | `it` / `specify` / `xit` / `fit` (RSpec), `def test_*` (Minitest)        |
 
 Languages with a "Required pack" entry need the corresponding `@ast-grep/lang-*` package installed in the **same scope** as Probity. Use `npm install -D <pack>` for project-local or `npm install -g <pack>` for global. If the pack isn't installed, writes in that language silently fall through to the AI path (no install, no error, no fast-path).
 
