@@ -98,9 +98,10 @@ The Copilot Chat extension (VS Code) reads hooks from `.github/hooks/probity.jso
   }
 }
 ```
+
 Note the use of `bash` and `powershell` in this example, select the shell option available for your environment.
 
-Every tool call fires the hook; probity's rules pass through non-write actions. The Chat adapter accepts `run_in_terminal`, `create_file`, and `replace_string_in_file` payloads. 
+Every tool call fires the hook; probity's rules pass through non-write actions. The Chat adapter accepts `run_in_terminal`, `create_file`, and `replace_string_in_file` payloads.
 
 ## GitHub Copilot CLI
 
@@ -120,6 +121,7 @@ GitHub Copilot CLI reads hooks from the same `.github/hooks/probity.json` — th
   }
 }
 ```
+
 Note the use of `bash` and `powershell` in this example, select the shell option available for your environment.
 
 Every tool call fires the hook; probity's rules pass through non-write actions. Probity accepts Copilot's `bash`, `create`, and `edit` tool payloads.
