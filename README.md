@@ -6,60 +6,58 @@
 [![Security](https://github.com/nizos/probity/actions/workflows/security.yml/badge.svg)](https://github.com/nizos/probity/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Process discipline for AI coding agents.
+Probity blocks AI coding agents from breaking your rules — adding production code without a failing test, disabling lint rules instead of fixing the issue, reaching for `rm -rf` when something more targeted would do. It works through your agent's existing hook system.
+
+Probity is the successor to [TDD Guard](https://github.com/nizos/tdd-guard) (~2k stars, ~180k downloads), now with one config across Claude Code, Codex, GitHub Copilot Chat, and GitHub Copilot CLI.
 
 <p align="center">
   <img src="docs/assets/probity-tdd-demo.gif" alt="Probity blocking an over-implementation attempt" width="1200">
 </p>
 
-Probity catches what coding agents do wrong (over-implementing past the failing test, disabling tests instead of fixing them, reaching for `rm -rf`) using the hook system your agent already exposes.
-
 ## How it works
 
-Each agent action (file write, shell command) fires a hook. Probity evaluates the action against your configured rules and decides whether it goes through. When it blocks, the agent gets a reason and a path forward:
+Each agent action (file write, shell command) fires a hook. Probity evaluates the action and either lets it through or sends back a reason and a path forward:
 
 ```
-probity: production code is being added before any failing test was written
-or observed.
+probity: you're adding production code before a failing test has been
+observed.
 
-The next TDD-legal step is to add one focused test in src/cart.test.ts and
-run it to a clean assertion failure before implementing only the minimum code
-to pass it.
+The next TDD-legal step is to add one focused test in src/cart.test.ts
+and run it to a clean assertion failure before implementing only the
+minimum code to pass it.
 ```
 
-Probity grew out of [tdd-guard](https://github.com/nizos/tdd-guard), built to be the better foundation for the work ahead: rules beyond TDD, agents beyond Claude Code.
+The agent receives the message and corrects course. Rules can be deterministic (string or regex match on commands or file content) or AI-validated. AI-validated rules reuse your agent's existing authentication, so Probity doesn't need its own API key.
 
-## Features
+## Quick start
 
-- Catches over-implementation and missing tests by reading your agent's session history (works with any test runner, in any language)
-- Same config across Claude Code, Codex, GitHub Copilot Chat, and Copilot CLI: one rule set, every agent
-- Pattern blocks for commands and content (string or regex) for the deterministic checks
-- Custom rules in a few lines of TypeScript
-
-## Getting started
-
-Install Probity as a dev dependency, then [wire it into your agent](docs/setup.md):
-
-```
+```bash
 npm install -D @nizos/probity
 ```
 
-Create a `probity.config.ts` at your project root.
-
-Here's a starter that enforces TDD on `src/` and `test/`, and blocks `eslint-disable` comments:
+Create `probity.config.ts` at your project root:
 
 ```ts
-import { defineConfig, enforceTdd, forbidContentPattern } from '@nizos/probity'
+import {
+  defineConfig,
+  enforceTdd,
+  forbidCommandPattern,
+  forbidContentPattern,
+} from '@nizos/probity'
 
 export default defineConfig({
   rules: [
+    forbidCommandPattern({
+      match: /rm\s+-rf/,
+      reason: '`rm -rf` is too broad; remove specific paths instead.',
+    }),
     {
       files: ['src/**', 'test/**'],
       rules: [
         enforceTdd(),
         forbidContentPattern({
           match: 'eslint-disable',
-          reason: 'Fix the lint violation rather than disabling the rule',
+          reason: 'Fix the lint violation rather than disabling the rule.',
         }),
       ],
     },
@@ -67,15 +65,41 @@ export default defineConfig({
 })
 ```
 
+Then [wire it into your agent](docs/setup.md). One-time setup per agent.
+
+## Built-in rules
+
+- **`enforceTdd()`**: enforces the TDD cycle — failing test first, minimal implementation, refactor on green. Reads recent session activity, so refactors and multi-step edits don't trip false positives.
+- **`forbidCommandPattern()`**: blocks shell commands by string or regex match. For destructive commands or steering agents to the right tool.
+- **`requireCommand()`**: gates a command on a prior one in session history (e.g., block commits unless tests have run since the last edit).
+- **`forbidContentPattern()`**: blocks file writes whose content matches a pattern (e.g., no `eslint-disable` or `setTimeout` in `src/`).
+- **`enforceFilenameCasing()`**: blocks writes whose filename does not match a configured casing style.
+
+Custom rules are a few lines of TypeScript. File scoping uses ESLint-style globs, including negations.
+
+## FAQ
+
+**Does it work with my agent?**
+Probity currently works with Claude Code, Codex, GitHub Copilot Chat, and GitHub Copilot CLI, with more coming.
+
+**Does it work with my language?**
+Probity reads each agent's session transcript directly, so there are no per-framework reporters to install. It works with any language and test runner that your agent can work with.
+
+**Does Probity need its own API key or subscription?**
+No. AI-validated rules use each vendor's official SDK and reuse whatever authentication your agent already has, so Probity doesn't require its own access or billing.
+
+**I'm already using TDD Guard. Should I switch?**
+Probity's TDD validation reads the session transcript, which lets it handle refactors and multi-step edits more reliably. It also supports more agents and is safe with parallel sessions. The one gap: TDD Guard has a lint integration that Probity doesn't yet match.
+
 ## Documentation
 
-- [Setup](docs/setup.md): wire probity into your agent
+- [Setup](docs/setup.md): wire Probity into your agent
 - [Configuration](docs/configuration.md): config file shape, path scoping, and custom rules
 - [Rules](docs/rules.md): built-in rules and their options
 
 ## Contributing
 
-Contributions are welcome! See the [contributing guidelines](CONTRIBUTING.md) to get started.
+Contributions are welcome. See the [contributing guidelines](CONTRIBUTING.md) to get started.
 
 ## License
 
