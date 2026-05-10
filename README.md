@@ -8,11 +8,11 @@
 
 Probity blocks AI coding agents from breaking your rules — adding production code without a failing test, disabling lint rules instead of fixing the issue, reaching for `rm -rf` when something more targeted would do. It works through your agent's existing hook system.
 
-Probity is the successor to [TDD Guard](https://github.com/nizos/tdd-guard) (~2k stars, ~180k downloads), now with one config across Claude Code, Codex, GitHub Copilot Chat, and GitHub Copilot CLI.
-
 <p align="center">
   <img src="docs/assets/probity-tdd-demo.gif" alt="Probity blocking an over-implementation attempt" width="1200">
 </p>
+
+Probity is the successor to [TDD Guard](https://github.com/nizos/tdd-guard) (~2k stars, ~180k downloads), now with one config across Claude Code, Codex, GitHub Copilot Chat, and GitHub Copilot CLI.
 
 ## How it works
 
