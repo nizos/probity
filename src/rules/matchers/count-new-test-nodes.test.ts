@@ -94,6 +94,83 @@ describe.each([
 
     expect(countNewTestNodes(before, after, language)).toBe(1)
   })
+
+  it('counts it.todo() as a test node', () => {
+    const before = `describe('x', () => {})`
+    const after = `describe('x', () => { it.todo('a') })`
+
+    expect(countNewTestNodes(before, after, language)).toBe(1)
+  })
+
+  it('counts test.todo() as a test node', () => {
+    const before = `describe('x', () => {})`
+    const after = `describe('x', () => { test.todo('a') })`
+
+    expect(countNewTestNodes(before, after, language)).toBe(1)
+  })
+
+  it('counts xit() as a test node', () => {
+    const before = `describe('x', () => {})`
+    const after = `describe('x', () => { xit('a', () => {}) })`
+
+    expect(countNewTestNodes(before, after, language)).toBe(1)
+  })
+
+  it('counts fit() as a test node', () => {
+    const before = `describe('x', () => {})`
+    const after = `describe('x', () => { fit('a', () => {}) })`
+
+    expect(countNewTestNodes(before, after, language)).toBe(1)
+  })
+
+  it('counts xtest() as a test node', () => {
+    const before = `describe('x', () => {})`
+    const after = `describe('x', () => { xtest('a', () => {}) })`
+
+    expect(countNewTestNodes(before, after, language)).toBe(1)
+  })
+
+  it('counts ftest() as a test node', () => {
+    const before = `describe('x', () => {})`
+    const after = `describe('x', () => { ftest('a', () => {}) })`
+
+    expect(countNewTestNodes(before, after, language)).toBe(1)
+  })
+
+  it('counts it.failing() as a test node', () => {
+    const before = `describe('x', () => {})`
+    const after = `describe('x', () => { it.failing('a', () => {}) })`
+
+    expect(countNewTestNodes(before, after, language)).toBe(1)
+  })
+
+  it('counts a deep chain like it.concurrent.skip.each() as a single test node', () => {
+    const before = `describe('x', () => {})`
+    const after = `describe('x', () => { it.concurrent.skip.each([1])('case %i', (n) => {}) })`
+
+    expect(countNewTestNodes(before, after, language)).toBe(1)
+  })
+
+  it('does not count `it` from a named import as a test node', () => {
+    const before = ``
+    const after = `import { it } from 'vitest'`
+
+    expect(countNewTestNodes(before, after, language)).toBe(0)
+  })
+
+  it('does not count a local `it` binding as a test node', () => {
+    const before = ``
+    const after = `const it = (name, fn) => fn()`
+
+    expect(countNewTestNodes(before, after, language)).toBe(0)
+  })
+
+  it('does not count obj.it() where `it` is a property name', () => {
+    const before = ``
+    const after = `obj.it()`
+
+    expect(countNewTestNodes(before, after, language)).toBe(0)
+  })
 })
 
 describe('countNewTestNodes (python)', () => {
