@@ -14,6 +14,10 @@ export function toCanonical(event: RawSessionEvent): SessionEvent {
       }
       return { kind: 'write', path, content: file_text, output: event.output }
     }
+    case 'edit': {
+      const { path, new_str } = event.input as { path: string; new_str: string }
+      return { kind: 'write', path, content: new_str, output: event.output }
+    }
     default:
       return {
         kind: 'other',
