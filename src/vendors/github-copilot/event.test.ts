@@ -42,6 +42,23 @@ describe('toCanonical (github-copilot)', () => {
     })
   })
 
+  it('classifies an edit action as a write event using new_str as content', () => {
+    const result = toCanonical({
+      kind: 'action',
+      tool: 'edit',
+      input: { path: '/abs/src/calc.ts', old_str: 'old', new_str: 'new' },
+      output: 'edited',
+      toolUseId: 'call_edit',
+    })
+
+    expect(result).toEqual({
+      kind: 'write',
+      path: '/abs/src/calc.ts',
+      content: 'new',
+      output: 'edited',
+    })
+  })
+
   it('classifies an unrecognized tool as an other event, preserving raw input', () => {
     const result = toCanonical({
       kind: 'action',
