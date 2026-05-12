@@ -42,6 +42,27 @@ describe('toCanonical (github-copilot-chat)', () => {
     })
   })
 
+  it('classifies a replace_string_in_file action as a write event using newString as content', () => {
+    const result = toCanonical({
+      kind: 'action',
+      tool: 'replace_string_in_file',
+      input: {
+        filePath: '/abs/src/calc.ts',
+        oldString: 'old',
+        newString: 'new',
+      },
+      output: 'edited',
+      toolUseId: 'call_edit',
+    })
+
+    expect(result).toEqual({
+      kind: 'write',
+      path: '/abs/src/calc.ts',
+      content: 'new',
+      output: 'edited',
+    })
+  })
+
   it('classifies an unrecognized tool as an other event, preserving raw input', () => {
     const result = toCanonical({
       kind: 'action',

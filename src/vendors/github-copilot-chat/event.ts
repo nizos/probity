@@ -14,6 +14,18 @@ export function toCanonical(event: RawSessionEvent): SessionEvent {
       }
       return { kind: 'write', path: filePath, content, output: event.output }
     }
+    case 'replace_string_in_file': {
+      const { filePath, newString } = event.input as {
+        filePath: string
+        newString: string
+      }
+      return {
+        kind: 'write',
+        path: filePath,
+        content: newString,
+        output: event.output,
+      }
+    }
     default:
       return {
         kind: 'other',
