@@ -1,6 +1,3 @@
-import { spawn } from 'node:child_process'
-import path from 'node:path'
-
 import type { PreToolUseHookInput } from '@anthropic-ai/claude-agent-sdk'
 import type { FileWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools'
 import { createFixture, type FileTree } from 'fs-fixture'
@@ -8,6 +5,7 @@ import { describe, it, expect, onTestFinished } from 'vitest'
 
 import type { Vendor } from '../../src/cli.js'
 import { decodeResponse, type DecodedResponse } from './decode-response.js'
+import { runBin } from './run-bin.js'
 
 describe.each([
   'claude-code',
@@ -132,8 +130,8 @@ describe.each([
         filePath: scenario.filePath,
         content: "console.log('fetch failed', err)",
       })
-      const { stdout } = await runHook({
-        agent,
+      const { stdout } = await runBin({
+        args: ['--agent', agent],
         payload: JSON.stringify(action),
         cwd: agentCwd,
       })
@@ -165,8 +163,8 @@ describe.each([
         filePath: fixture.getPath('src/foo.ts'),
         content: "console.log('fetch failed', err)",
       })
-      const { stdout } = await runHook({
-        agent,
+      const { stdout } = await runBin({
+        args: ['--agent', agent],
         payload: JSON.stringify(action),
         cwd: fixture.path,
       })
@@ -227,8 +225,8 @@ describe('install modes (claude-code)', () => {
         filePath: scenario.filePath,
         content: "console.log('fetch failed', err)",
       })
-      const { stdout } = await runHook({
-        agent: 'claude-code',
+      const { stdout } = await runBin({
+        args: ['--agent', 'claude-code'],
         payload: JSON.stringify(action),
         cwd: fixture.path,
       })
@@ -269,31 +267,6 @@ async function createScenarioFixture(opts: { files: FileTree }) {
   const fixture = await createFixture(opts.files)
   onTestFinished(async () => fixture.rm())
   return fixture
-}
-
-async function runHook(opts: {
-  agent: Vendor
-  payload: string
-  cwd: string
-}): Promise<{ stdout: string; stderr: string }> {
-  const child = spawn(
-    process.execPath,
-    [path.resolve('dist/bin.js'), '--agent', opts.agent],
-    { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] },
-  )
-  const stdoutChunks: Buffer[] = []
-  const stderrChunks: Buffer[] = []
-  child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk))
-  child.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk))
-  child.stdin.end(opts.payload)
-  await new Promise<void>((resolve, reject) => {
-    child.on('close', () => resolve())
-    child.on('error', reject)
-  })
-  return {
-    stdout: Buffer.concat(stdoutChunks).toString(),
-    stderr: Buffer.concat(stderrChunks).toString(),
-  }
 }
 
 type WriteAction =

@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process'
 import { readFileSync, symlinkSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -11,6 +10,7 @@ import type { Vendor } from '../../src/cli.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
 import type { ResponseShape as CodexResponse } from '../../src/vendors/codex/adapter.js'
+import { runBin } from './run-bin.js'
 
 const CONFIG_FIXTURE = 'test/fixtures/configs/kebab-only.config.ts'
 
@@ -143,23 +143,11 @@ export default defineConfig({
 `,
     )
 
-    const stdin = buildClaudeCodeWritePayload({ cwd: subdir, filePath })
-    const result = await new Promise<{ stdout: string; stderr: string }>(
-      (resolve, reject) => {
-        const child = spawn(
-          process.execPath,
-          [path.resolve('dist/bin.js'), '--agent', 'claude-code'],
-          { cwd: subdir, stdio: ['pipe', 'pipe', 'pipe'] },
-        )
-        let stdout = ''
-        let stderr = ''
-        child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
-        child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
-        child.on('close', () => resolve({ stdout, stderr }))
-        child.on('error', reject)
-        child.stdin.end(stdin)
-      },
-    )
+    const result = await runBin({
+      args: ['--agent', 'claude-code'],
+      cwd: subdir,
+      payload: buildClaudeCodeWritePayload({ cwd: subdir, filePath }),
+    })
 
     const response = parseAs<ClaudeCodeResponse>(result.stdout)
     expect(response.hookSpecificOutput.permissionDecision).toBe('deny')
@@ -204,27 +192,11 @@ type SetupOptions = {
 }
 
 async function setup(options: SetupOptions = {}) {
-  const binPath = options.binPath ?? 'dist/bin.js'
-
-  const args = options.args ?? buildAgentArgs(options)
-
-  const stdin = resolvePayload(options)
-
-  const result = await new Promise<{ stdout: string; stderr: string }>(
-    (resolve, reject) => {
-      const child = spawn(process.execPath, [binPath, ...args], {
-        cwd: path.resolve(),
-        stdio: ['pipe', 'pipe', 'pipe'],
-      })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
-      child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
-      child.on('close', () => resolve({ stdout, stderr }))
-      child.on('error', reject)
-      child.stdin.end(stdin)
-    },
-  )
+  const result = await runBin({
+    ...(options.binPath !== undefined && { binPath: options.binPath }),
+    args: options.args ?? buildAgentArgs(options),
+    payload: resolvePayload(options),
+  })
 
   const getStdout = () => {
     if (!result.stdout) {
