@@ -109,6 +109,14 @@ describe.each([
           'allows a legal write in a sub-repo when Windows-shape paths and parent-dir config apply and the file extension is outside the glob',
         filePath: 'src\\foo.js',
       },
+      {
+        // File is entirely outside the glob's directory tree (no `src/` anywhere in the path).
+        ...defaults,
+        glob: '**/src/**/*.ts',
+        description:
+          "allows a write whose path is entirely outside the glob's directory tree",
+        filePath: 'scripts/foo.ts',
+      },
     ]
 
     const fixtureFiles: FileTree = {
@@ -116,6 +124,7 @@ describe.each([
       'src/foo.js': '',
       'repoA/src/foo.ts': '',
       'repoA/src/foo.js': '',
+      'scripts/foo.ts': '',
     }
 
     async function runScenario(scenario: Scenario): Promise<DecodedResponse> {
@@ -143,22 +152,28 @@ describe.each([
       expect(result.decision).toBe('allow')
     })
 
-    it('blocks a forbidden write when the payload uses an absolute POSIX file_path', async () => {
-      // Absolute path (rest of the matrix uses relative paths)
-      const fixture = await createScenarioFixture({
-        files: {
-          'probity.config.ts': createProbityConfig(),
-          ...fixtureFiles,
-        },
-      })
-      const result = await runWriteAction({
-        agent,
-        cwd: fixture.path,
-        filePath: fixture.getPath('src/foo.ts'),
-      })
-      expect(result.decision).toBe('deny')
-      expect(result.reason).toContain(CONSOLE_RULE_REASON)
-    })
+    // Absolute path (rest of the matrix uses relative paths).
+    it.each([
+      { name: 'anchored', glob: DEFAULT_GLOB },
+      { name: 'match-anywhere', glob: '**/src/**/*.ts' },
+    ])(
+      'blocks a forbidden write when the payload uses an absolute POSIX file_path ($name glob)',
+      async ({ glob }) => {
+        const fixture = await createScenarioFixture({
+          files: {
+            'probity.config.ts': createProbityConfig({ glob }),
+            ...fixtureFiles,
+          },
+        })
+        const result = await runWriteAction({
+          agent,
+          cwd: fixture.path,
+          filePath: fixture.getPath('src/foo.ts'),
+        })
+        expect(result.decision).toBe('deny')
+        expect(result.reason).toContain(CONSOLE_RULE_REASON)
+      },
+    )
   })
 })
 
