@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -53,6 +53,37 @@ describe('loadConfig', () => {
     expect(config.rules[0]).toMatchObject({
       files: ['!**/foo.test.ts'],
     })
+  })
+
+  it('produces POSIX-form anchored globs when the input filepath has backslashes (Windows-shape dirname)', async () => {
+    // jiti normalizes `\` to `/` for filesystem lookup, but path.dirname
+    // preserves the backslash inside the path component, giving root the
+    // same shape as path.win32.dirname of `C:\\src\\probity.config.ts`.
+    const parent = await mkdtemp(path.join(tmpdir(), 'probity-windows-sim-'))
+    onTestFinished(async () => {
+      await rm(parent, { recursive: true, force: true })
+    })
+    const realDir = path.join(parent, 'win', 'style')
+    await mkdir(realDir, { recursive: true })
+    await writeFile(
+      path.join(realDir, 'probity.config.ts'),
+      `import { defineConfig, forbidContentPattern } from '@nizos/probity'
+export default defineConfig({
+  rules: [
+    {
+      files: ['src/**'],
+      rules: [forbidContentPattern({ match: /./, reason: 'x' })],
+    },
+  ],
+})
+`,
+    )
+    const winShapedPath = `${parent}/win\\style/probity.config.ts`
+
+    const config = await loadConfig(winShapedPath)
+    const block = config.rules[0] as { files: readonly string[] }
+
+    expect(block.files[0]).not.toContain('\\')
   })
 
   it('resolves `@nizos/probity` from a config file that lives outside the package tree', async () => {

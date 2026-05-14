@@ -26,6 +26,18 @@ describe('buildMatcher', () => {
     expect(matches('src/foo.ts')).toBe(false)
     expect(matches('anything')).toBe(false)
   })
+
+  it('matches a drive-letter POSIX path against a `**/src/**` glob', () => {
+    const matches = buildMatcher(['**/src/**'])
+    expect(matches('C:/src/proj/src/foo.ts')).toBe(true)
+    expect(matches('C:/proj/lib/foo.ts')).toBe(false)
+  })
+
+  it('matches a drive-letter POSIX path against an anchored `<root>/src/**` glob', () => {
+    const matches = buildMatcher(['C:/proj/src/**'])
+    expect(matches('C:/proj/src/foo.ts')).toBe(true)
+    expect(matches('C:/proj/lib/foo.ts')).toBe(false)
+  })
 })
 
 describe('actionMatchesFilesScope', () => {

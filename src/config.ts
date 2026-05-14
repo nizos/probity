@@ -81,7 +81,7 @@ export async function loadConfig(filepath: string): Promise<Config> {
     },
   })
   const module = await jiti.import<{ default: Config }>(filepath)
-  const root = path.dirname(filepath)
+  const root = path.dirname(filepath).replace(/\\/g, '/')
   return {
     ...module.default,
     rules: module.default.rules.map((entry) => {

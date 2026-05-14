@@ -8,4 +8,8 @@ describe('posixAbsolute', () => {
       '/workspaces/probity/src/foo.ts',
     )
   })
+
+  it('returns a forward-slash path, converting any backslashes in the resolved output', () => {
+    expect(posixAbsolute('/proj', 'src\\foo.ts')).toBe('/proj/src/foo.ts')
+  })
 })
