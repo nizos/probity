@@ -61,6 +61,16 @@ describe.skipIf(!runAi)('enforce-tdd (integration with real AI)', () => {
 
     expectDecision(result, 'deny')
   }, 60000)
+
+  it('allows a stub when a recent failing test is buried under noisy follow-up reads', async () => {
+    const result = await setup({
+      transcript: 'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
+      pendingContent:
+        'export const modulo = (a: number, b: number): number => 0\n',
+    })
+
+    expectDecision(result, 'allow')
+  }, 60000)
 })
 
 function inferFilename(content: string): string {

@@ -59,11 +59,18 @@ tests do not count. Restructuring existing tests is not "adding".
 A test can fail before reaching an assertion (import unresolved,
 signature mismatch). The agent may resolve these without violating TDD:
 
-  - Import or symbol unresolved -> create empty stub only
-  - Signature mismatch -> adjust signature, stub body minimally
-  - Assertion failure -> implement minimal logic to pass
+  - Import or symbol unresolved -> create a placeholder stub: a body
+    that makes the symbol exist but does not implement the behavior the
+    test asserts. Returning a literal that contradicts the assertion
+    (e.g. \`=> 0\` when the test expects \`1\`) or throwing
+    \`not implemented\` are both valid stubs; they exist solely to
+    surface a real assertion failure on the next test run.
+  - Signature mismatch -> adjust signature; keep the body as a
+    placeholder stub per the rule above.
+  - Assertion failure -> implement minimal logic to pass.
 
-No new behavior is permitted at the stub-resolution step.
+A stub-resolution step must not implement the test's asserted behavior.
+Returning a literal that the assertion will reject IS a stub.
 
 ### Green phase: minimum to pass
 
