@@ -1,5 +1,5 @@
-import { createFixture, type FileTree } from 'fs-fixture'
-import { describe, it, expect, onTestFinished } from 'vitest'
+import type { FileTree } from 'fs-fixture'
+import { describe, it, expect } from 'vitest'
 
 import type { Vendor } from '../../src/cli.js'
 import {
@@ -7,6 +7,7 @@ import {
   type DecodedResponse,
 } from './helpers/decode-response.js'
 import { runBin } from './helpers/run-bin.js'
+import { createSandbox } from './helpers/sandbox.js'
 import { createWriteAction } from './helpers/write-actions.js'
 
 const CONSOLE_LOG_CONTENT = "console.log('fetch failed', err)"
@@ -128,15 +129,13 @@ describe.each([
     }
 
     async function runScenario(scenario: Scenario): Promise<DecodedResponse> {
-      const fixture = await createScenarioFixture({
-        files: {
-          'probity.config.ts': createProbityConfig({ glob: scenario.glob }),
-          ...fixtureFiles,
-        },
+      const sandbox = await createSandbox({
+        'probity.config.ts': createProbityConfig({ glob: scenario.glob }),
+        ...fixtureFiles,
       })
       return runWriteAction({
         agent,
-        cwd: fixture.getPath(scenario.agentCwdAt),
+        cwd: sandbox.getPath(scenario.agentCwdAt),
         filePath: scenario.filePath,
       })
     }
@@ -159,16 +158,14 @@ describe.each([
     ])(
       'blocks a forbidden write when the payload uses an absolute POSIX file_path ($name glob)',
       async ({ glob }) => {
-        const fixture = await createScenarioFixture({
-          files: {
-            'probity.config.ts': createProbityConfig({ glob }),
-            ...fixtureFiles,
-          },
+        const sandbox = await createSandbox({
+          'probity.config.ts': createProbityConfig({ glob }),
+          ...fixtureFiles,
         })
         const result = await runWriteAction({
           agent,
-          cwd: fixture.path,
-          filePath: fixture.getPath('src/foo.ts'),
+          cwd: sandbox.path,
+          filePath: sandbox.getPath('src/foo.ts'),
         })
         expect(result.decision).toBe('deny')
         expect(result.reason).toContain(CONSOLE_RULE_REASON)
@@ -212,17 +209,15 @@ describe('install modes (claude-code)', () => {
     async function runScenario(scenario: {
       filePath: string
     }): Promise<DecodedResponse> {
-      const fixture = await createScenarioFixture({
-        files: {
-          'probity.config.ts': createProbityConfig(),
-          ...extraFiles,
-          'src/foo.ts': '',
-          'src/foo.js': '',
-        },
+      const sandbox = await createSandbox({
+        'probity.config.ts': createProbityConfig(),
+        ...extraFiles,
+        'src/foo.ts': '',
+        'src/foo.js': '',
       })
       return runWriteAction({
         agent: 'claude-code',
-        cwd: fixture.path,
+        cwd: sandbox.path,
         filePath: scenario.filePath,
       })
     }
@@ -262,12 +257,6 @@ function createProbityConfig(
   return `import { defineConfig, forbidContentPattern, forbidCommandPattern, enforceTdd, enforceFilenameCasing, requireCommand } from '@nizos/probity'
 export default defineConfig({ rules: ${rules} })
 `
-}
-
-async function createScenarioFixture(opts: { files: FileTree }) {
-  const fixture = await createFixture(opts.files)
-  onTestFinished(async () => fixture.rm())
-  return fixture
 }
 
 // Stamps out a write action for `agent`, fires the bin against `cwd`,
