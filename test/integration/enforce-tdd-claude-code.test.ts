@@ -9,84 +9,109 @@ import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
 import { expectDecision } from './helpers/expect-decision.js'
+import {
+  EXISTING_TEST_CONTENT,
+  MINIMAL_IMPL,
+  MODULO_STUB_IMPL,
+  OVER_IMPL,
+  PLUS_ONE_TEST,
+  PLUS_TWO_TESTS,
+  targetFilename,
+} from './helpers/tdd-fixtures.js'
 
 const runAi = process.env.PROBITY_INTEGRATION_AI === '1'
+const AI_TIMEOUT = 60_000
 
 describe.skipIf(!runAi)('enforce-tdd (integration with real AI)', () => {
-  it('allows clean TDD with minimal implementation', async () => {
-    const result = await setup({
-      transcript: 'test/fixtures/transcripts/tdd-clean.jsonl',
-      pendingContent:
-        'export const add = (a: number, b: number): number => a + b\n',
-    })
+  it(
+    'allows clean TDD with minimal implementation',
+    async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/tdd-clean.jsonl',
+        pendingContent: MINIMAL_IMPL,
+      })
 
-    expectDecision(result, 'allow')
-  }, 60000)
+      expectDecision(result, 'allow')
+    },
+    AI_TIMEOUT,
+  )
 
-  it('blocks clear over-implementation', async () => {
-    const result = await setup({
-      transcript: 'test/fixtures/transcripts/tdd-over-impl.jsonl',
-      pendingContent: OVER_IMPL,
-    })
+  it(
+    'blocks clear over-implementation',
+    async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/tdd-over-impl.jsonl',
+        pendingContent: OVER_IMPL,
+      })
 
-    expectDecision(result, 'deny')
-  }, 60000)
+      expectDecision(result, 'deny')
+    },
+    AI_TIMEOUT,
+  )
 
-  it('blocks implementation when the failing test has not been run', async () => {
-    const result = await setup({
-      transcript: 'test/fixtures/transcripts/tdd-no-test-run.jsonl',
-      pendingContent:
-        'export const add = (a: number, b: number): number => a + b\n',
-    })
+  it(
+    'blocks implementation when the failing test has not been run',
+    async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/tdd-no-test-run.jsonl',
+        pendingContent: MINIMAL_IMPL,
+      })
 
-    expectDecision(result, 'deny')
-  }, 60000)
+      expectDecision(result, 'deny')
+    },
+    AI_TIMEOUT,
+  )
 
-  it('allows adding a second test to an existing test file', async () => {
-    const result = await setup({
-      transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
-      beforeFile: EXISTING_TEST_CONTENT,
-      pendingContent: PLUS_ONE_TEST,
-    })
+  it(
+    'allows adding a second test to an existing test file',
+    async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
+        beforeFile: EXISTING_TEST_CONTENT,
+        pendingContent: PLUS_ONE_TEST,
+      })
 
-    expectDecision(result, 'allow')
-  }, 60000)
+      expectDecision(result, 'allow')
+    },
+    AI_TIMEOUT,
+  )
 
-  it('blocks when two new tests are added in a single write', async () => {
-    const result = await setup({
-      transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
-      beforeFile: EXISTING_TEST_CONTENT,
-      pendingContent: PLUS_TWO_TESTS,
-    })
+  it(
+    'blocks when two new tests are added in a single write',
+    async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
+        beforeFile: EXISTING_TEST_CONTENT,
+        pendingContent: PLUS_TWO_TESTS,
+      })
 
-    expectDecision(result, 'deny')
-  }, 60000)
+      expectDecision(result, 'deny')
+    },
+    AI_TIMEOUT,
+  )
 
-  it('allows a stub when a recent failing test is buried under noisy follow-up reads', async () => {
-    const result = await setup({
-      transcript: 'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
-      pendingContent:
-        'export const modulo = (a: number, b: number): number => 0\n',
-    })
+  it(
+    'allows a stub when a recent failing test is buried under noisy follow-up reads',
+    async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
+        pendingContent: MODULO_STUB_IMPL,
+      })
 
-    expectDecision(result, 'allow')
-  }, 60000)
+      expectDecision(result, 'allow')
+    },
+    AI_TIMEOUT,
+  )
 })
 
-function inferFilename(content: string): string {
-  return /describe\(|\bit\(/.test(content) ? 'target.test.ts' : 'target.ts'
-}
-
-async function setup(opts: {
+async function runScenario(opts: {
   transcript: string
   pendingContent: string
   beforeFile?: string
 }): Promise<{ decision: string; reason?: string }> {
   const dir = await mkdtemp(path.join(tmpdir(), 'enforce-tdd-claude-'))
-  onTestFinished(async () => {
-    await rm(dir, { recursive: true, force: true })
-  })
-  const filePath = path.join(dir, inferFilename(opts.pendingContent))
+  onTestFinished(() => rm(dir, { recursive: true, force: true }))
+  const filePath = path.join(dir, targetFilename(opts.pendingContent))
   if (opts.beforeFile !== undefined) {
     await writeFile(filePath, opts.beforeFile)
   }
@@ -104,82 +129,11 @@ async function setup(opts: {
     loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
   })
   if (response === '') return { decision: 'allow' }
-  const parsed = parseAs<ClaudeCodeResponse>(response)
+  const out = parseAs<ClaudeCodeResponse>(response).hookSpecificOutput
   return {
-    decision: parsed.hookSpecificOutput.permissionDecision ?? 'allow',
-    ...(parsed.hookSpecificOutput.permissionDecisionReason !== undefined && {
-      reason: parsed.hookSpecificOutput.permissionDecisionReason,
+    decision: out.permissionDecision ?? 'allow',
+    ...(out.permissionDecisionReason !== undefined && {
+      reason: out.permissionDecisionReason,
     }),
   }
 }
-
-const EXISTING_TEST_CONTENT = `import { describe, expect, it } from 'vitest'
-import { add } from './calculator.js'
-
-describe('calculator', () => {
-  it('adds two numbers', () => {
-    expect(add(2, 3)).toBe(5)
-  })
-})
-`
-
-const PLUS_ONE_TEST = `import { describe, expect, it } from 'vitest'
-import { add } from './calculator.js'
-
-describe('calculator', () => {
-  it('adds two numbers', () => {
-    expect(add(2, 3)).toBe(5)
-  })
-
-  it('adds negative numbers', () => {
-    expect(add(-1, -1)).toBe(-2)
-  })
-})
-`
-
-const PLUS_TWO_TESTS = `import { describe, expect, it } from 'vitest'
-import { add } from './calculator.js'
-
-describe('calculator', () => {
-  it('adds two numbers', () => {
-    expect(add(2, 3)).toBe(5)
-  })
-
-  it('adds negative numbers', () => {
-    expect(add(-1, -1)).toBe(-2)
-  })
-
-  it('adds zeros', () => {
-    expect(add(0, 0)).toBe(0)
-  })
-})
-`
-
-const OVER_IMPL = `export const add = (a: number, b: number): number => a + b
-export const subtract = (a: number, b: number): number => a - b
-export const multiply = (a: number, b: number): number => a * b
-export const divide = (a: number, b: number): number => {
-  if (b === 0) throw new Error('division by zero')
-  return a / b
-}
-export const power = (a: number, b: number): number => Math.pow(a, b)
-export const sqrt = (a: number): number => Math.sqrt(a)
-
-export class Calculator {
-  private history: Array<{ op: string; result: number }> = []
-
-  add(a: number, b: number): number {
-    const r = a + b
-    this.history.push({ op: 'add', result: r })
-    return r
-  }
-  subtract(a: number, b: number): number {
-    const r = a - b
-    this.history.push({ op: 'subtract', result: r })
-    return r
-  }
-  clear(): void {
-    this.history = []
-  }
-}
-`
