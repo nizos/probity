@@ -7,6 +7,7 @@ import type { Vendor } from '../../src/cli.js'
 import { decodeResponse } from './helpers/decode-response.js'
 import { runBin } from './helpers/run-bin.js'
 import { createSandbox } from './helpers/sandbox.js'
+import { createWriteAction } from './helpers/write-actions.js'
 
 const CONFIG_FIXTURE = 'test/fixtures/configs/kebab-only.config.ts'
 
@@ -169,13 +170,12 @@ function buildClaudeCodeWritePayload(opts: {
   cwd: string
   filePath: string
 }): string {
-  return JSON.stringify({
-    session_id: 'edge-case',
-    transcript_path: '/tmp/transcript.jsonl',
-    cwd: opts.cwd,
-    hook_event_name: 'PreToolUse',
-    tool_name: 'Write',
-    tool_input: { file_path: opts.filePath, content: 'x' },
-    tool_use_id: 'tu_edge_case',
-  })
+  return JSON.stringify(
+    createWriteAction({
+      agent: 'claude-code',
+      cwd: opts.cwd,
+      filePath: opts.filePath,
+      content: 'x',
+    }),
+  )
 }
