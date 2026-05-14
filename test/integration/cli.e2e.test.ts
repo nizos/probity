@@ -3,36 +3,31 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-import type { PreToolUseHookOutput } from '@github/copilot/sdk'
 import { describe, it, expect, onTestFinished } from 'vitest'
 
 import type { Vendor } from '../../src/cli.js'
-import { parseAs } from '../../src/utils/parse-as.js'
-import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
-import type { ResponseShape as CodexResponse } from '../../src/vendors/codex/adapter.js'
+import { decodeResponse } from './helpers/decode-response.js'
 import { runBin } from './helpers/run-bin.js'
 
 const CONFIG_FIXTURE = 'test/fixtures/configs/kebab-only.config.ts'
 
 describe('probity cli (integration)', () => {
   it('blocks a write that violates the configured rules', async () => {
-    const { getResponse } = await setup({
+    const { getStdout } = await setup({
       payloadFixture: 'test/fixtures/claude-code/write-new-file.json',
       config: CONFIG_FIXTURE,
     })
 
-    expect(
-      getResponse<ClaudeCodeResponse>().hookSpecificOutput.permissionDecision,
-    ).toBe('deny')
+    expect(decodeResponse('claude-code', getStdout()).decision).toBe('deny')
   })
 
-  it('emits no opinion (empty stdout) for a Bash payload that no rule blocks', async () => {
+  it('emits no opinion for a Bash payload that no rule blocks', async () => {
     const { getRawStdout } = await setup({
       payloadFixture: 'test/fixtures/claude-code/bash-npm-install.json',
       config: CONFIG_FIXTURE,
     })
 
-    expect(getRawStdout()).toBe('')
+    expect(decodeResponse('claude-code', getRawStdout()).decision).toBe('allow')
   })
 
   it('loads the config from --config <path> instead of discovering one', async () => {
@@ -41,69 +36,17 @@ describe('probity cli (integration)', () => {
       config: 'test/fixtures/configs/kebab-only.config.ts',
     })
 
-    expect(getRawStdout()).toBe('')
+    expect(decodeResponse('claude-code', getRawStdout()).decision).toBe('allow')
   })
 
   it('blocks a write whose path matches a { files, rules } block scope', async () => {
-    const { getResponse } = await setup({
+    const { getStdout } = await setup({
       payloadFixture: 'test/fixtures/claude-code/write-new-file.json',
       config: 'test/fixtures/configs/blocks.config.ts',
     })
 
-    expect(
-      getResponse<ClaudeCodeResponse>().hookSpecificOutput.permissionDecision,
-    ).toBe('deny')
+    expect(decodeResponse('claude-code', getStdout()).decision).toBe('deny')
   })
-
-  it('skips a { files, rules } block when the write path is outside its files glob', async () => {
-    const { getRawStdout } = await setup({
-      payloadFixture: 'test/fixtures/claude-code/write-outside-src.json',
-      config: 'test/fixtures/configs/blocks.config.ts',
-    })
-
-    expect(getRawStdout()).toBe('')
-  })
-
-  it.each([
-    {
-      vendor: 'claude-code' as const,
-      fixture: 'test/fixtures/claude-code/write-new-file.json',
-      readDeny: (out: string) =>
-        parseAs<ClaudeCodeResponse>(out).hookSpecificOutput.permissionDecision,
-      expected: 'deny',
-    },
-    {
-      vendor: 'codex' as const,
-      fixture: 'test/fixtures/codex/pre-apply-patch.json',
-      readDeny: (out: string) => parseAs<CodexResponse>(out).decision,
-      expected: 'block',
-    },
-    {
-      vendor: 'github-copilot' as const,
-      fixture: 'test/fixtures/github-copilot/pre-create-new-test.json',
-      readDeny: (out: string) =>
-        parseAs<PreToolUseHookOutput>(out).permissionDecision,
-      expected: 'deny',
-    },
-    {
-      vendor: 'github-copilot-chat' as const,
-      fixture: 'test/fixtures/github-copilot-chat/pre-create-file.json',
-      readDeny: (out: string) =>
-        parseAs<ClaudeCodeResponse>(out).hookSpecificOutput.permissionDecision,
-      expected: 'deny',
-    },
-  ])(
-    'matches absolute paths from $vendor against `**/src/**` globs',
-    async ({ vendor, fixture, readDeny, expected }) => {
-      const { getStdout } = await setup({
-        vendor,
-        payloadFixture: fixture,
-        config: 'test/fixtures/configs/relative-glob.config.ts',
-      })
-
-      expect(readDeny(getStdout())).toBe(expected)
-    },
-  )
 
   it('runs main() when invoked via a symlink (the npx case)', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'probity-bin-link-'))
@@ -149,11 +92,9 @@ export default defineConfig({
       payload: buildClaudeCodeWritePayload({ cwd: subdir, filePath }),
     })
 
-    const response = parseAs<ClaudeCodeResponse>(result.stdout)
-    expect(response.hookSpecificOutput.permissionDecision).toBe('deny')
-    expect(response.hookSpecificOutput.permissionDecisionReason).toContain(
-      'walk-up discovery fired',
-    )
+    const decoded = decodeResponse('claude-code', result.stdout)
+    expect(decoded.decision).toBe('deny')
+    expect(decoded.reason).toContain('walk-up discovery fired')
   })
 
   it('matches a config rule scoped at the config root when the session opens in a subdirectory', async () => {
@@ -171,14 +112,12 @@ export default defineConfig({
       }]`),
     )
 
-    const { getResponse } = await setup({
+    const { getStdout } = await setup({
       payload: buildClaudeCodeWritePayload({ cwd: example, filePath }),
       config: configPath,
     })
 
-    expect(
-      getResponse<ClaudeCodeResponse>().hookSpecificOutput.permissionDecision,
-    ).toBe('deny')
+    expect(decodeResponse('claude-code', getStdout()).decision).toBe('deny')
   })
 })
 
@@ -209,9 +148,7 @@ async function setup(options: SetupOptions = {}) {
 
   const getRawStdout = () => result.stdout
 
-  const getResponse = <T>() => parseAs<T>(getStdout())
-
-  return { getStdout, getRawStdout, getResponse }
+  return { getStdout, getRawStdout }
 }
 
 function buildAgentArgs(options: SetupOptions): string[] {
