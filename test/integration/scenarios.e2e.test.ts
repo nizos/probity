@@ -11,6 +11,7 @@ import { createWriteAction } from './helpers/write-actions.js'
 
 const CONSOLE_LOG_CONTENT = "console.log('fetch failed', err)"
 const CONSOLE_RULE_REASON = 'No console.* in TypeScript source'
+const DEFAULT_GLOB = 'src/**/*.ts'
 
 describe.each([
   'claude-code',
@@ -20,11 +21,11 @@ describe.each([
 ] as const)('probity scenarios — %s', (agent) => {
   describe('writes', () => {
     const defaults = {
-      glob: 'src/**/*.ts',
+      glob: DEFAULT_GLOB,
       agentCwdAt: '.',
     }
 
-    const blockingScenarios = [
+    const blockingScenarios: Scenario[] = [
       {
         // src/foo.ts at the config root matches anchored src/**/*.ts
         ...defaults,
@@ -67,7 +68,7 @@ describe.each([
       },
     ]
 
-    const allowingScenarios = [
+    const allowingScenarios: Scenario[] = [
       {
         // src/foo.js: extension is outside the .ts-only glob
         ...defaults,
@@ -117,11 +118,7 @@ describe.each([
       'repoA/src/foo.js': '',
     }
 
-    async function runScenario(scenario: {
-      glob: string
-      agentCwdAt: string
-      filePath: string
-    }): Promise<DecodedResponse> {
+    async function runScenario(scenario: Scenario): Promise<DecodedResponse> {
       const fixture = await createScenarioFixture({
         files: {
           'probity.config.ts': createProbityConfig({ glob: scenario.glob }),
@@ -228,10 +225,17 @@ describe('install modes (claude-code)', () => {
   })
 })
 
+type Scenario = {
+  glob: string
+  agentCwdAt: string
+  description: string
+  filePath: string
+}
+
 function createProbityConfig(
   opts: { rules?: string; glob?: string } = {},
 ): string {
-  const glob = opts.glob ?? 'src/**/*.ts'
+  const glob = opts.glob ?? DEFAULT_GLOB
   const rules =
     opts.rules ??
     `[
