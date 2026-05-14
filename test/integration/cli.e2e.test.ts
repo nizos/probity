@@ -1,13 +1,12 @@
-import { readFileSync, symlinkSync } from 'node:fs'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { describe, it, expect, onTestFinished } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 import type { Vendor } from '../../src/cli.js'
 import { decodeResponse } from './helpers/decode-response.js'
 import { runBin } from './helpers/run-bin.js'
+import { createSandbox } from './helpers/sandbox.js'
 
 const CONFIG_FIXTURE = 'test/fixtures/configs/kebab-only.config.ts'
 
@@ -49,15 +48,12 @@ describe('probity cli (integration)', () => {
   })
 
   it('runs main() when invoked via a symlink (the npx case)', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'probity-bin-link-'))
-    onTestFinished(async () => {
-      await rm(dir, { recursive: true, force: true })
+    const sandbox = await createSandbox({
+      probity: (api) => api.symlink(path.resolve('dist/bin.js')),
     })
-    const link = path.join(dir, 'probity')
-    symlinkSync(path.resolve('dist/bin.js'), link)
 
     const { getRawStdout } = await setup({
-      binPath: link,
+      binPath: sandbox.getPath('probity'),
       args: ['--version'],
     })
 
@@ -65,15 +61,9 @@ describe('probity cli (integration)', () => {
   })
 
   it('discovers `probity.config.ts` via walk-up from process.cwd() when no --config is given, resolving `@nizos/probity` from outside the package tree', async () => {
-    const projectRoot = await createScratchDir()
-    const subdir = path.join(projectRoot, 'pkg-a')
-    const filePath = path.join(subdir, 'src', 'foo.ts')
-    await mkdir(path.dirname(filePath), { recursive: true })
-
-    const configPath = path.join(projectRoot, 'probity.config.ts')
-    await writeFile(
-      configPath,
-      `import { defineConfig, forbidContentPattern } from '@nizos/probity'
+    const sandbox = await createSandbox({
+      'pkg-a/src/foo.ts': '',
+      'probity.config.ts': `import { defineConfig, forbidContentPattern } from '@nizos/probity'
 
 export default defineConfig({
   rules: [
@@ -84,7 +74,9 @@ export default defineConfig({
   ],
 })
 `,
-    )
+    })
+    const subdir = sandbox.getPath('pkg-a')
+    const filePath = sandbox.getPath('pkg-a/src/foo.ts')
 
     const result = await runBin({
       args: ['--agent', 'claude-code'],
@@ -98,23 +90,19 @@ export default defineConfig({
   })
 
   it('matches a config rule scoped at the config root when the session opens in a subdirectory', async () => {
-    const projectRoot = await createScratchDir()
-    const example = path.join(projectRoot, 'example')
-    const filePath = path.join(example, 'src', 'foo.ts')
-    await mkdir(path.dirname(filePath), { recursive: true })
-
-    const configPath = path.join(projectRoot, 'probity.config.ts')
-    await writeFile(
-      configPath,
-      buildProbityConfig(`[{
+    const sandbox = await createSandbox({
+      'example/src/foo.ts': '',
+      'probity.config.ts': buildProbityConfig(`[{
         files: ['example/src/**'],
         rules: [forbidContentPattern({ match: /./, reason: 'edge-case rule fired' })],
       }]`),
-    )
+    })
+    const example = sandbox.getPath('example')
+    const filePath = sandbox.getPath('example/src/foo.ts')
 
     const { getStdout } = await setup({
       payload: buildClaudeCodeWritePayload({ cwd: example, filePath }),
-      config: configPath,
+      config: sandbox.getPath('probity.config.ts'),
     })
 
     expect(decodeResponse('claude-code', getStdout()).decision).toBe('deny')
@@ -164,9 +152,11 @@ function resolvePayload(options: SetupOptions): string {
   return ''
 }
 
-// Wraps a `defineConfig({...})` body in the boilerplate every test
-// config needs (the import line + the default export). The argument is
-// the rule entries — usually a `RuleEntry[]` literal as text.
+/**
+ * Wraps a `defineConfig({...})` body in the boilerplate every test
+ * config needs (the import line + the default export). The argument
+ * is the rule entries, usually a `RuleEntry[]` literal as text.
+ */
 function buildProbityConfig(rules: string): string {
   const dist = path.resolve('dist/index.js')
   return `import { defineConfig, enforceFilenameCasing, enforceTdd, forbidCommandPattern, forbidContentPattern } from '${dist}'
@@ -188,12 +178,4 @@ function buildClaudeCodeWritePayload(opts: {
     tool_input: { file_path: opts.filePath, content: 'x' },
     tool_use_id: 'tu_edge_case',
   })
-}
-
-async function createScratchDir(): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), 'probity-e2e-'))
-  onTestFinished(async () => {
-    await rm(root, { recursive: true, force: true })
-  })
-  return root
 }
