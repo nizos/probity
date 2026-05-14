@@ -1,6 +1,4 @@
-import { mkdtemp, mkdir, cp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { readFileSync } from 'node:fs'
 
 import type { PreToolUseHookOutput } from '@github/copilot/sdk'
 import { describe, it, onTestFinished } from 'vitest'
@@ -9,6 +7,7 @@ import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import { expectDecision } from './helpers/expect-decision.js'
+import { createSandbox } from './helpers/sandbox.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
@@ -98,39 +97,59 @@ async function runScenario(opts: {
   pendingContent: string
   beforeFile?: string
 }): Promise<{ decision: string; reason?: string }> {
-  const home = await mkdtemp(path.join(tmpdir(), 'probity-copilot-tdd-'))
-  const sessionDir = path.join(home, 'session-state', SESSION_ID)
-  await mkdir(sessionDir, { recursive: true })
-  await cp(opts.transcript, path.join(sessionDir, 'events.jsonl'))
-
-  const prevHome = process.env.COPILOT_HOME
-  process.env.COPILOT_HOME = home
-  const fileDir = await mkdtemp(path.join(tmpdir(), 'probity-copilot-file-'))
-  onTestFinished(async () => {
-    if (prevHome === undefined) delete process.env.COPILOT_HOME
-    else process.env.COPILOT_HOME = prevHome
-    await rm(home, { recursive: true, force: true })
-    await rm(fileDir, { recursive: true, force: true })
+  const filename = targetFilename(opts.pendingContent)
+  const homeSandbox = await createSandbox({
+    [`session-state/${SESSION_ID}/events.jsonl`]: readFileSync(
+      opts.transcript,
+      'utf8',
+    ),
   })
+  useCopilotHome(homeSandbox.path)
+  const fileSandbox = await createSandbox(
+    opts.beforeFile !== undefined ? { [filename]: opts.beforeFile } : {},
+  )
+  const filePath = fileSandbox.getPath(filename)
+  const response = await run(
+    buildPayload({ filePath, content: opts.pendingContent }),
+    {
+      vendor: 'github-copilot',
+      loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
+    },
+  )
+  return extractResult(response)
+}
 
-  const filePath = path.join(fileDir, targetFilename(opts.pendingContent))
-  if (opts.beforeFile !== undefined) {
-    await writeFile(filePath, opts.beforeFile)
-  }
-  const payload = JSON.stringify({
+/**
+ * Points `COPILOT_HOME` at `value` for the duration of the current
+ * test, restoring whatever was there before (or unsetting if nothing
+ * was) when the test finishes.
+ */
+function useCopilotHome(value: string): void {
+  const previous = process.env.COPILOT_HOME
+  process.env.COPILOT_HOME = value
+  onTestFinished(() => {
+    if (previous === undefined) delete process.env.COPILOT_HOME
+    else process.env.COPILOT_HOME = previous
+  })
+}
+
+function buildPayload(opts: { filePath: string; content: string }): string {
+  return JSON.stringify({
     sessionId: SESSION_ID,
     timestamp: Date.now(),
     cwd: '/workspaces/probity',
     toolName: 'create',
     toolArgs: JSON.stringify({
-      path: filePath,
-      file_text: opts.pendingContent,
+      path: opts.filePath,
+      file_text: opts.content,
     }),
   })
-  const response = await run(payload, {
-    vendor: 'github-copilot',
-    loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
-  })
+}
+
+function extractResult(response: string): {
+  decision: string
+  reason?: string
+} {
   if (response === '') return { decision: 'allow' }
   const parsed = parseAs<PreToolUseHookOutput>(response)
   return {
