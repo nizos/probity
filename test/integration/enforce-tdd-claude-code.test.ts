@@ -1,14 +1,11 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-
-import { describe, it, onTestFinished } from 'vitest'
+import { describe, it } from 'vitest'
 
 import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
 import { expectDecision } from './helpers/expect-decision.js'
+import { createSandbox } from './helpers/sandbox.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
@@ -109,25 +106,45 @@ async function runScenario(opts: {
   pendingContent: string
   beforeFile?: string
 }): Promise<{ decision: string; reason?: string }> {
-  const dir = await mkdtemp(path.join(tmpdir(), 'enforce-tdd-claude-'))
-  onTestFinished(() => rm(dir, { recursive: true, force: true }))
-  const filePath = path.join(dir, targetFilename(opts.pendingContent))
-  if (opts.beforeFile !== undefined) {
-    await writeFile(filePath, opts.beforeFile)
-  }
-  const payload = JSON.stringify({
+  const filename = targetFilename(opts.pendingContent)
+  const sandbox = await createSandbox(
+    opts.beforeFile !== undefined ? { [filename]: opts.beforeFile } : {},
+  )
+  const filePath = sandbox.getPath(filename)
+  const response = await run(
+    buildPayload({
+      transcript: opts.transcript,
+      filePath,
+      content: opts.pendingContent,
+    }),
+    {
+      vendor: 'claude-code',
+      loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
+    },
+  )
+  return extractResult(response)
+}
+
+function buildPayload(opts: {
+  transcript: string
+  filePath: string
+  content: string
+}): string {
+  return JSON.stringify({
     session_id: 'integration',
     transcript_path: opts.transcript,
     cwd: '/workspaces/probity',
     hook_event_name: 'PreToolUse',
     tool_name: 'Write',
-    tool_input: { file_path: filePath, content: opts.pendingContent },
+    tool_input: { file_path: opts.filePath, content: opts.content },
     tool_use_id: 'toolu_integration',
   })
-  const response = await run(payload, {
-    vendor: 'claude-code',
-    loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
-  })
+}
+
+function extractResult(response: string): {
+  decision: string
+  reason?: string
+} {
   if (response === '') return { decision: 'allow' }
   const out = parseAs<ClaudeCodeResponse>(response).hookSpecificOutput
   return {
