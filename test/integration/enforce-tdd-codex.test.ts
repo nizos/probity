@@ -1,14 +1,11 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-
-import { describe, it, onTestFinished } from 'vitest'
+import { describe, it } from 'vitest'
 
 import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as CodexResponse } from '../../src/vendors/codex/adapter.js'
 import { expectDecision } from './helpers/expect-decision.js'
+import { createSandbox } from './helpers/sandbox.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
@@ -100,13 +97,31 @@ async function runScenario(opts: {
   pendingContent: string
   beforeFile?: string
 }): Promise<{ decision: string; reason?: string }> {
-  const dir = await mkdtemp(path.join(tmpdir(), 'enforce-tdd-codex-'))
-  onTestFinished(() => rm(dir, { recursive: true, force: true }))
-  const filePath = path.join(dir, targetFilename(opts.pendingContent))
-  if (opts.beforeFile !== undefined) {
-    await writeFile(filePath, opts.beforeFile)
-  }
-  const payload = JSON.stringify({
+  const filename = targetFilename(opts.pendingContent)
+  const sandbox = await createSandbox(
+    opts.beforeFile !== undefined ? { [filename]: opts.beforeFile } : {},
+  )
+  const filePath = sandbox.getPath(filename)
+  const response = await run(
+    buildPayload({
+      transcript: opts.transcript,
+      filePath,
+      content: opts.pendingContent,
+    }),
+    {
+      vendor: 'codex',
+      loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
+    },
+  )
+  return extractResult(response)
+}
+
+function buildPayload(opts: {
+  transcript: string
+  filePath: string
+  content: string
+}): string {
+  return JSON.stringify({
     session_id: 'integration-codex',
     turn_id: 'integration-codex-turn',
     transcript_path: opts.transcript,
@@ -115,25 +130,27 @@ async function runScenario(opts: {
     model: 'gpt-5.5',
     permission_mode: 'default',
     tool_name: 'apply_patch',
-    tool_input: { command: makeAddFilePatch(filePath, opts.pendingContent) },
+    tool_input: { command: buildAddFilePatch(opts.filePath, opts.content) },
     tool_use_id: 'call_integration_codex',
   })
-  const response = await run(payload, {
-    vendor: 'codex',
-    loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
-  })
+}
+
+function buildAddFilePatch(filePath: string, content: string): string {
+  const body = content
+    .split('\n')
+    .map((line) => `+${line}`)
+    .join('\n')
+  return `*** Begin Patch\n*** Add File: ${filePath}\n${body}\n*** End Patch\n`
+}
+
+function extractResult(response: string): {
+  decision: string
+  reason?: string
+} {
   if (response === '') return { decision: 'allow' }
   const parsed = parseAs<CodexResponse>(response)
   return {
     decision: parsed.decision ?? 'allow',
     ...(parsed.reason !== undefined && { reason: parsed.reason }),
   }
-}
-
-function makeAddFilePatch(filePath: string, content: string): string {
-  const body = content
-    .split('\n')
-    .map((line) => `+${line}`)
-    .join('\n')
-  return `*** Begin Patch\n*** Add File: ${filePath}\n${body}\n*** End Patch\n`
 }
