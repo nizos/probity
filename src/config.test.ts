@@ -1,6 +1,8 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, onTestFinished } from 'vitest'
 
 import { defineConfig, findConfig, loadConfig } from './config.js'
 
@@ -51,6 +53,23 @@ describe('loadConfig', () => {
     expect(config.rules[0]).toMatchObject({
       files: ['!**/foo.test.ts'],
     })
+  })
+
+  it('resolves `@nizos/probity` from a config file that lives outside the package tree', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'probity-config-import-'))
+    onTestFinished(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+    const configPath = path.join(dir, 'probity.config.ts')
+    await writeFile(
+      configPath,
+      `import { defineConfig } from '@nizos/probity'\n` +
+        `export default defineConfig({ rules: [] })\n`,
+    )
+
+    const config = await loadConfig(configPath)
+
+    expect(config).toEqual({ rules: [] })
   })
 })
 

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { createJiti } from 'jiti'
 
@@ -74,7 +75,11 @@ const CONFIG_EXTENSIONS = ['ts', 'mts', 'js', 'mjs'] as const
  * regardless of where the agent's session is rooted.
  */
 export async function loadConfig(filepath: string): Promise<Config> {
-  const jiti = createJiti(import.meta.url)
+  const jiti = createJiti(import.meta.url, {
+    alias: {
+      '@nizos/probity': fileURLToPath(new URL('./index.js', import.meta.url)),
+    },
+  })
   const module = await jiti.import<{ default: Config }>(filepath)
   const root = path.dirname(filepath)
   return {
