@@ -103,11 +103,17 @@ function createCodexWriteAction(opts: {
     model: STUB_MODEL,
     permission_mode: 'default',
     tool_name: 'apply_patch',
-    tool_input: {
-      command: `*** Begin Patch\n*** Add File: ${opts.filePath}\n+${opts.content}\n*** End Patch\n`,
-    },
+    tool_input: { command: buildAddFilePatch(opts.filePath, opts.content) },
     tool_use_id: STUB_TOOL_USE_ID,
   }
+}
+
+function buildAddFilePatch(filePath: string, content: string): string {
+  const body = content
+    .split('\n')
+    .map((line) => `+${line}`)
+    .join('\n')
+  return `*** Begin Patch\n*** Add File: ${filePath}\n${body}\n*** End Patch\n`
 }
 
 function createCopilotChatWriteAction(opts: {
