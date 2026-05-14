@@ -1,9 +1,13 @@
 import { createFixture, type FileTree } from 'fs-fixture'
 import { describe, it, expect, onTestFinished } from 'vitest'
 
+import type { Vendor } from '../../src/cli.js'
 import { decodeResponse, type DecodedResponse } from './decode-response.js'
 import { runBin } from './run-bin.js'
 import { createWriteAction } from './write-actions.js'
+
+const CONSOLE_LOG_CONTENT = "console.log('fetch failed', err)"
+const CONSOLE_RULE_REASON = 'No console.* in TypeScript source'
 
 describe.each([
   'claude-code',
@@ -121,25 +125,17 @@ describe.each([
           ...fixtureFiles,
         },
       })
-      const agentCwd = fixture.getPath(scenario.agentCwdAt)
-      const action = createWriteAction({
+      return runWriteAction({
         agent,
-        cwd: agentCwd,
+        cwd: fixture.getPath(scenario.agentCwdAt),
         filePath: scenario.filePath,
-        content: "console.log('fetch failed', err)",
       })
-      const { stdout } = await runBin({
-        args: ['--agent', agent],
-        payload: JSON.stringify(action),
-        cwd: agentCwd,
-      })
-      return decodeResponse(agent, stdout)
     }
 
     it.each(blockingScenarios)('$description', async (scenario) => {
       const result = await runScenario(scenario)
       expect(result.decision).toBe('deny')
-      expect(result.reason).toContain('No console.* in TypeScript source')
+      expect(result.reason).toContain(CONSOLE_RULE_REASON)
     })
 
     it.each(allowingScenarios)('$description', async (scenario) => {
@@ -155,21 +151,13 @@ describe.each([
           ...fixtureFiles,
         },
       })
-      const action = createWriteAction({
+      const result = await runWriteAction({
         agent,
         cwd: fixture.path,
         filePath: fixture.getPath('src/foo.ts'),
-        content: "console.log('fetch failed', err)",
       })
-      const { stdout } = await runBin({
-        args: ['--agent', agent],
-        payload: JSON.stringify(action),
-        cwd: fixture.path,
-      })
-
-      const result = decodeResponse(agent, stdout)
       expect(result.decision).toBe('deny')
-      expect(result.reason).toContain('No console.* in TypeScript source')
+      expect(result.reason).toContain(CONSOLE_RULE_REASON)
     })
   })
 })
@@ -217,24 +205,17 @@ describe('install modes (claude-code)', () => {
           'src/foo.js': '',
         },
       })
-      const action = createWriteAction({
+      return runWriteAction({
         agent: 'claude-code',
         cwd: fixture.path,
         filePath: scenario.filePath,
-        content: "console.log('fetch failed', err)",
       })
-      const { stdout } = await runBin({
-        args: ['--agent', 'claude-code'],
-        payload: JSON.stringify(action),
-        cwd: fixture.path,
-      })
-      return decodeResponse('claude-code', stdout)
     }
 
     it.each(blockingScenarios)('$description', async (scenario) => {
       const result = await runScenario(scenario)
       expect(result.decision).toBe('deny')
-      expect(result.reason).toContain('No console.* in TypeScript source')
+      expect(result.reason).toContain(CONSOLE_RULE_REASON)
     })
 
     it.each(allowingScenarios)('$description', async (scenario) => {
@@ -253,7 +234,7 @@ function createProbityConfig(
     `[
     {
       files: ['${glob}'],
-      rules: [forbidContentPattern({ match: 'console', reason: 'No console.* in TypeScript source' })],
+      rules: [forbidContentPattern({ match: 'console', reason: '${CONSOLE_RULE_REASON}' })],
     },
   ]`
   return `import { defineConfig, forbidContentPattern, forbidCommandPattern, enforceTdd, enforceFilenameCasing, requireCommand } from '@nizos/probity'
@@ -265,4 +246,26 @@ async function createScenarioFixture(opts: { files: FileTree }) {
   const fixture = await createFixture(opts.files)
   onTestFinished(async () => fixture.rm())
   return fixture
+}
+
+// Stamps out a write action for `agent`, fires the bin against `cwd`,
+// and returns the decoded response. The fixture and config setup is the
+// caller's responsibility — this is just the action-and-spawn core.
+async function runWriteAction(opts: {
+  agent: Vendor
+  cwd: string
+  filePath: string
+}): Promise<DecodedResponse> {
+  const action = createWriteAction({
+    agent: opts.agent,
+    cwd: opts.cwd,
+    filePath: opts.filePath,
+    content: CONSOLE_LOG_CONTENT,
+  })
+  const { stdout } = await runBin({
+    args: ['--agent', opts.agent],
+    payload: JSON.stringify(action),
+    cwd: opts.cwd,
+  })
+  return decodeResponse(opts.agent, stdout)
 }
