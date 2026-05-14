@@ -15,56 +15,64 @@ export type ResponseShape = {
   hookSpecificOutput: PreToolUseHookSpecificOutput
 }
 
+const bashSchema = z.object({
+  tool_name: z.literal('Bash'),
+  tool_input: z.object({ command: z.string() }),
+})
+
+const editSchema = z.object({
+  tool_name: z.literal('Edit'),
+  tool_input: z.object({
+    file_path: z.string(),
+    old_string: z.string(),
+    new_string: z.string(),
+    replace_all: z.boolean().default(false),
+  }),
+  cwd: z.string().min(1),
+})
+
+const writeSchema = z.object({
+  tool_name: z.literal('Write'),
+  tool_input: z.object({
+    file_path: z.string(),
+    content: z.string(),
+  }),
+  cwd: z.string().min(1),
+})
+
+/**
+ * The validated payload shape for a Write tool call. Intersect with the
+ * ceremony fields the SDK sends (session_id, transcript_path, etc.)
+ * when stamping out test payloads so the validated portion tracks the
+ * adapter automatically.
+ */
+export type WriteInput = z.input<typeof writeSchema>
+
 const writeToolsSchema = z.discriminatedUnion('tool_name', [
-  z
-    .object({
-      tool_name: z.literal('Bash'),
-      tool_input: z.object({ command: z.string() }),
+  bashSchema.transform(
+    (d): Action => ({ kind: 'command', command: d.tool_input.command }),
+  ),
+  editSchema.transform(async (d, ctx): Promise<Action> => {
+    const path = posixAbsolute(d.cwd, d.tool_input.file_path)
+    const result = await applyEdit({
+      filePath: path,
+      oldString: d.tool_input.old_string,
+      newString: d.tool_input.new_string,
+      replaceAll: d.tool_input.replace_all,
     })
-    .transform(
-      (d): Action => ({ kind: 'command', command: d.tool_input.command }),
-    ),
-  z
-    .object({
-      tool_name: z.literal('Edit'),
-      tool_input: z.object({
-        file_path: z.string(),
-        old_string: z.string(),
-        new_string: z.string(),
-        replace_all: z.boolean().default(false),
-      }),
-      cwd: z.string().min(1),
-    })
-    .transform(async (d, ctx): Promise<Action> => {
-      const path = posixAbsolute(d.cwd, d.tool_input.file_path)
-      const result = await applyEdit({
-        filePath: path,
-        oldString: d.tool_input.old_string,
-        newString: d.tool_input.new_string,
-        replaceAll: d.tool_input.replace_all,
-      })
-      if (!result.ok) {
-        ctx.addIssue({ code: 'custom', message: result.reason })
-        return z.NEVER
-      }
-      return { kind: 'write', path, content: result.content }
+    if (!result.ok) {
+      ctx.addIssue({ code: 'custom', message: result.reason })
+      return z.NEVER
+    }
+    return { kind: 'write', path, content: result.content }
+  }),
+  writeSchema.transform(
+    (d): Action => ({
+      kind: 'write',
+      path: posixAbsolute(d.cwd, d.tool_input.file_path),
+      content: d.tool_input.content,
     }),
-  z
-    .object({
-      tool_name: z.literal('Write'),
-      tool_input: z.object({
-        file_path: z.string(),
-        content: z.string(),
-      }),
-      cwd: z.string().min(1),
-    })
-    .transform(
-      (d): Action => ({
-        kind: 'write',
-        path: posixAbsolute(d.cwd, d.tool_input.file_path),
-        content: d.tool_input.content,
-      }),
-    ),
+  ),
 ])
 
 // Anything Claude Code fires the hook for that we don't explicitly

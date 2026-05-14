@@ -13,36 +13,44 @@ export type ResponseShape = { decision: string; reason: string }
 
 const PATCH_HEADER = /^\*\*\* (?:Add|Update|Delete) File: (.+)$/m
 
+const bashSchema = z.object({
+  tool_name: z.literal('Bash'),
+  tool_input: z.object({ command: z.string() }),
+})
+
+const applyPatchSchema = z.object({
+  tool_name: z.literal('apply_patch'),
+  tool_input: z.object({ command: z.string() }),
+  cwd: z.string().min(1),
+})
+
+/**
+ * The validated payload shape for an apply_patch tool call. Intersect
+ * with the ceremony fields the SDK sends (session_id, turn_id, etc.)
+ * when stamping out test payloads so the validated portion tracks the
+ * adapter automatically.
+ */
+export type WriteInput = z.input<typeof applyPatchSchema>
+
 const writeToolsSchema = z.discriminatedUnion('tool_name', [
-  z
-    .object({
-      tool_name: z.literal('Bash'),
-      tool_input: z.object({ command: z.string() }),
-    })
-    .transform(
-      (d): Action => ({ kind: 'command', command: d.tool_input.command }),
-    ),
-  z
-    .object({
-      tool_name: z.literal('apply_patch'),
-      tool_input: z.object({ command: z.string() }),
-      cwd: z.string().min(1),
-    })
-    .transform((d, ctx): Action => {
-      const path = PATCH_HEADER.exec(d.tool_input.command)?.[1]
-      if (!path) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'apply_patch: no Add/Update/Delete File header',
-        })
-        return z.NEVER
-      }
-      return {
-        kind: 'write',
-        path: posixAbsolute(d.cwd, path),
-        content: d.tool_input.command,
-      }
-    }),
+  bashSchema.transform(
+    (d): Action => ({ kind: 'command', command: d.tool_input.command }),
+  ),
+  applyPatchSchema.transform((d, ctx): Action => {
+    const path = PATCH_HEADER.exec(d.tool_input.command)?.[1]
+    if (!path) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'apply_patch: no Add/Update/Delete File header',
+      })
+      return z.NEVER
+    }
+    return {
+      kind: 'write',
+      path: posixAbsolute(d.cwd, path),
+      content: d.tool_input.command,
+    }
+  }),
 ])
 
 // Anything Codex fires the hook for that we don't explicitly model

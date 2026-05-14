@@ -1,7 +1,8 @@
-import type { PreToolUseHookInput } from '@anthropic-ai/claude-agent-sdk'
-import type { FileWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools'
-
 import type { Vendor } from '../../../src/cli.js'
+import type { WriteInput as ClaudeCodeWriteInput } from '../../../src/vendors/claude-code/adapter.js'
+import type { WriteInput as CodexWriteInput } from '../../../src/vendors/codex/adapter.js'
+import type { WriteInput as CopilotChatWriteInput } from '../../../src/vendors/github-copilot-chat/adapter.js'
+import type { WriteInput as CopilotWriteInput } from '../../../src/vendors/github-copilot/adapter.js'
 
 // Stub values used to satisfy each vendor's required hook-payload
 // fields. The bin reads them but doesn't gate on them; the exact
@@ -11,44 +12,34 @@ const STUB_TRANSCRIPT_PATH = '/tmp/transcript.jsonl'
 const STUB_TOOL_USE_ID = 'tu_scenario'
 const STUB_MODEL = 'gpt-5.5'
 
-export type ClaudeCodeWriteAction = Omit<
-  PreToolUseHookInput,
-  'tool_name' | 'tool_input'
-> & {
-  tool_name: 'Write'
-  tool_input: FileWriteInput
-}
-
-export type CodexWriteAction = {
+export type ClaudeCodeWriteAction = ClaudeCodeWriteInput & {
   session_id: string
-  turn_id: string
   transcript_path: string
-  cwd: string
   hook_event_name: 'PreToolUse'
-  model: string
-  permission_mode: string
-  tool_name: 'apply_patch'
-  tool_input: { command: string }
   tool_use_id: string
 }
 
-export type CopilotChatWriteAction = {
+export type CodexWriteAction = CodexWriteInput & {
+  session_id: string
+  turn_id: string
+  transcript_path: string
+  hook_event_name: 'PreToolUse'
+  model: string
+  permission_mode: string
+  tool_use_id: string
+}
+
+export type CopilotChatWriteAction = CopilotChatWriteInput & {
   timestamp: string
   hook_event_name: 'PreToolUse'
   session_id: string
   transcript_path: string
-  tool_name: 'create_file'
-  tool_input: { filePath: string; content: string }
   tool_use_id: string
-  cwd: string
 }
 
-export type CopilotWriteAction = {
+export type CopilotWriteAction = CopilotWriteInput & {
   sessionId: string
   timestamp: number
-  cwd: string
-  toolName: 'create'
-  toolArgs: string
 }
 
 export type WriteAction =
@@ -64,9 +55,11 @@ export type WriteActionOpts = {
   content: string
 }
 
-// Builds the raw hook payload each vendor's adapter expects on a write
-// action (Write / apply_patch / create_file / create). Tests stringify
-// the result and pipe it to `runBin` to drive the bin end-to-end.
+/**
+ * Builds the raw hook payload each vendor's adapter expects on a write
+ * action (Write / apply_patch / create_file / create). Tests stringify
+ * the result and pipe it to `runBin` to drive the bin end-to-end.
+ */
 export function createWriteAction(opts: WriteActionOpts): WriteAction {
   switch (opts.agent) {
     case 'claude-code':

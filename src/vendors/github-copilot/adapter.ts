@@ -19,55 +19,65 @@ export type ResponseShape = {
   permissionDecisionReason: string
 }
 
-const writeToolsSchema = z.discriminatedUnion('toolName', [
-  z
-    .object({
-      toolName: z.literal('bash'),
-      toolArgs: JsonString.pipe(z.object({ command: z.string() })),
-    })
-    .transform(
-      (d): Action => ({ kind: 'command', command: d.toolArgs.command }),
-    ),
-  z
-    .object({
-      toolName: z.literal('create'),
-      toolArgs: JsonString.pipe(
-        z.object({ path: z.string(), file_text: z.string() }),
-      ),
-      cwd: z.string().min(1),
-    })
-    .transform(
-      (d): Action => ({
-        kind: 'write',
-        path: posixAbsolute(d.cwd, d.toolArgs.path),
-        content: d.toolArgs.file_text,
-      }),
-    ),
-  z
-    .object({
-      toolName: z.literal('edit'),
-      toolArgs: JsonString.pipe(
-        z.object({
-          path: z.string(),
-          old_str: z.string(),
-          new_str: z.string(),
-        }),
-      ),
-      cwd: z.string().min(1),
-    })
-    .transform(async (d, ctx): Promise<Action> => {
-      const filePath = posixAbsolute(d.cwd, d.toolArgs.path)
-      const result = await applyEdit({
-        filePath,
-        oldString: d.toolArgs.old_str,
-        newString: d.toolArgs.new_str,
-      })
-      if (!result.ok) {
-        ctx.addIssue({ code: 'custom', message: result.reason })
-        return z.NEVER
-      }
-      return { kind: 'write', path: filePath, content: result.content }
+const bashSchema = z.object({
+  toolName: z.literal('bash'),
+  toolArgs: JsonString.pipe(z.object({ command: z.string() })),
+})
+
+const createSchema = z.object({
+  toolName: z.literal('create'),
+  toolArgs: JsonString.pipe(
+    z.object({ path: z.string(), file_text: z.string() }),
+  ),
+  cwd: z.string().min(1),
+})
+
+const editSchema = z.object({
+  toolName: z.literal('edit'),
+  toolArgs: JsonString.pipe(
+    z.object({
+      path: z.string(),
+      old_str: z.string(),
+      new_str: z.string(),
     }),
+  ),
+  cwd: z.string().min(1),
+})
+
+/**
+ * The validated payload shape for a `create` tool call. Intersect with
+ * the ceremony fields Copilot sends (sessionId, timestamp) when
+ * stamping out test payloads so the validated portion tracks the
+ * adapter automatically. `toolArgs` arrives as a JSON string on the
+ * wire (parsed by `JsonString.pipe`), so the input shape carries the
+ * unparsed string form.
+ */
+export type WriteInput = z.input<typeof createSchema>
+
+const writeToolsSchema = z.discriminatedUnion('toolName', [
+  bashSchema.transform(
+    (d): Action => ({ kind: 'command', command: d.toolArgs.command }),
+  ),
+  createSchema.transform(
+    (d): Action => ({
+      kind: 'write',
+      path: posixAbsolute(d.cwd, d.toolArgs.path),
+      content: d.toolArgs.file_text,
+    }),
+  ),
+  editSchema.transform(async (d, ctx): Promise<Action> => {
+    const filePath = posixAbsolute(d.cwd, d.toolArgs.path)
+    const result = await applyEdit({
+      filePath,
+      oldString: d.toolArgs.old_str,
+      newString: d.toolArgs.new_str,
+    })
+    if (!result.ok) {
+      ctx.addIssue({ code: 'custom', message: result.reason })
+      return z.NEVER
+    }
+    return { kind: 'write', path: filePath, content: result.content }
+  }),
 ])
 
 // Anything Copilot fires the hook for that we don't explicitly model

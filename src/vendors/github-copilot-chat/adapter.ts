@@ -18,51 +18,59 @@ export function toResponse(decision: Decision): string {
   return ''
 }
 
+const runInTerminalSchema = z.object({
+  tool_name: z.literal('run_in_terminal'),
+  tool_input: z.object({ command: z.string() }),
+})
+
+const createFileSchema = z.object({
+  tool_name: z.literal('create_file'),
+  tool_input: z.object({ filePath: z.string(), content: z.string() }),
+  cwd: z.string().min(1),
+})
+
+const replaceStringInFileSchema = z.object({
+  tool_name: z.literal('replace_string_in_file'),
+  tool_input: z.object({
+    filePath: z.string(),
+    oldString: z.string(),
+    newString: z.string(),
+  }),
+  cwd: z.string().min(1),
+})
+
+/**
+ * The validated payload shape for a create_file tool call. Intersect
+ * with the ceremony fields the Chat extension sends (session_id,
+ * timestamp, etc.) when stamping out test payloads so the validated
+ * portion tracks the adapter automatically.
+ */
+export type WriteInput = z.input<typeof createFileSchema>
+
 const writeToolsSchema = z.discriminatedUnion('tool_name', [
-  z
-    .object({
-      tool_name: z.literal('run_in_terminal'),
-      tool_input: z.object({ command: z.string() }),
-    })
-    .transform(
-      (d): Action => ({ kind: 'command', command: d.tool_input.command }),
-    ),
-  z
-    .object({
-      tool_name: z.literal('create_file'),
-      tool_input: z.object({ filePath: z.string(), content: z.string() }),
-      cwd: z.string().min(1),
-    })
-    .transform(
-      (d): Action => ({
-        kind: 'write',
-        path: posixAbsolute(d.cwd, d.tool_input.filePath),
-        content: d.tool_input.content,
-      }),
-    ),
-  z
-    .object({
-      tool_name: z.literal('replace_string_in_file'),
-      tool_input: z.object({
-        filePath: z.string(),
-        oldString: z.string(),
-        newString: z.string(),
-      }),
-      cwd: z.string().min(1),
-    })
-    .transform(async (d, ctx): Promise<Action> => {
-      const filePath = posixAbsolute(d.cwd, d.tool_input.filePath)
-      const result = await applyEdit({
-        filePath,
-        oldString: d.tool_input.oldString,
-        newString: d.tool_input.newString,
-      })
-      if (!result.ok) {
-        ctx.addIssue({ code: 'custom', message: result.reason })
-        return z.NEVER
-      }
-      return { kind: 'write', path: filePath, content: result.content }
+  runInTerminalSchema.transform(
+    (d): Action => ({ kind: 'command', command: d.tool_input.command }),
+  ),
+  createFileSchema.transform(
+    (d): Action => ({
+      kind: 'write',
+      path: posixAbsolute(d.cwd, d.tool_input.filePath),
+      content: d.tool_input.content,
     }),
+  ),
+  replaceStringInFileSchema.transform(async (d, ctx): Promise<Action> => {
+    const filePath = posixAbsolute(d.cwd, d.tool_input.filePath)
+    const result = await applyEdit({
+      filePath,
+      oldString: d.tool_input.oldString,
+      newString: d.tool_input.newString,
+    })
+    if (!result.ok) {
+      ctx.addIssue({ code: 'custom', message: result.reason })
+      return z.NEVER
+    }
+    return { kind: 'write', path: filePath, content: result.content }
+  }),
 ])
 
 // Anything we don't explicitly recognise (read_file, list_dir,
