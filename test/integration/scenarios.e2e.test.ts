@@ -7,10 +7,7 @@ import { createFixture, type FileTree } from 'fs-fixture'
 import { describe, it, expect, onTestFinished } from 'vitest'
 
 import type { Vendor } from '../../src/cli.js'
-import { parseAs } from '../../src/utils/parse-as.js'
-import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
-import type { ResponseShape as CodexResponse } from '../../src/vendors/codex/adapter.js'
-import type { ResponseShape as CopilotResponse } from '../../src/vendors/github-copilot/adapter.js'
+import { decodeResponse, type DecodedResponse } from './decode-response.js'
 
 describe.each([
   'claude-code',
@@ -121,7 +118,7 @@ describe.each([
       glob: string
       agentCwdAt: string
       filePath: string
-    }): Promise<string> {
+    }): Promise<DecodedResponse> {
       const fixture = await createScenarioFixture({
         files: {
           'probity.config.ts': createProbityConfig({ glob: scenario.glob }),
@@ -140,17 +137,18 @@ describe.each([
         payload: JSON.stringify(action),
         cwd: agentCwd,
       })
-      return stdout
+      return decodeResponse(agent, stdout)
     }
 
     it.each(blockingScenarios)('$description', async (scenario) => {
-      const stdout = await runScenario(scenario)
-      expectBlocked(agent, stdout, 'No console.* in TypeScript source')
+      const result = await runScenario(scenario)
+      expect(result.decision).toBe('deny')
+      expect(result.reason).toContain('No console.* in TypeScript source')
     })
 
     it.each(allowingScenarios)('$description', async (scenario) => {
-      const stdout = await runScenario(scenario)
-      expect(stdout).toBe('')
+      const result = await runScenario(scenario)
+      expect(result.decision).toBe('allow')
     })
 
     it('blocks a forbidden write when the payload uses an absolute POSIX file_path', async () => {
@@ -173,7 +171,9 @@ describe.each([
         cwd: fixture.path,
       })
 
-      expectBlocked(agent, stdout, 'No console.* in TypeScript source')
+      const result = decodeResponse(agent, stdout)
+      expect(result.decision).toBe('deny')
+      expect(result.reason).toContain('No console.* in TypeScript source')
     })
   })
 })
@@ -212,7 +212,7 @@ describe('install modes (claude-code)', () => {
   describe.each(installSetups)('$name', ({ extraFiles }) => {
     async function runScenario(scenario: {
       filePath: string
-    }): Promise<string> {
+    }): Promise<DecodedResponse> {
       const fixture = await createScenarioFixture({
         files: {
           'probity.config.ts': createProbityConfig(),
@@ -232,17 +232,18 @@ describe('install modes (claude-code)', () => {
         payload: JSON.stringify(action),
         cwd: fixture.path,
       })
-      return stdout
+      return decodeResponse('claude-code', stdout)
     }
 
     it.each(blockingScenarios)('$description', async (scenario) => {
-      const stdout = await runScenario(scenario)
-      expectBlocked('claude-code', stdout, 'No console.* in TypeScript source')
+      const result = await runScenario(scenario)
+      expect(result.decision).toBe('deny')
+      expect(result.reason).toContain('No console.* in TypeScript source')
     })
 
     it.each(allowingScenarios)('$description', async (scenario) => {
-      const stdout = await runScenario(scenario)
-      expect(stdout).toBe('')
+      const result = await runScenario(scenario)
+      expect(result.decision).toBe('allow')
     })
   })
 })
@@ -295,12 +296,18 @@ async function runHook(opts: {
   }
 }
 
+type WriteAction =
+  | ClaudeCodeWriteAction
+  | CodexWriteAction
+  | CopilotChatWriteAction
+  | CopilotWriteAction
+
 function createWriteAction(opts: {
   agent: Vendor
   cwd: string
   filePath: string
   content: string
-}): unknown {
+}): WriteAction {
   switch (opts.agent) {
     case 'claude-code':
       return createClaudeCodeWriteAction(opts)
@@ -421,27 +428,5 @@ function createCopilotWriteAction(opts: {
       path: opts.filePath,
       file_text: opts.content,
     }),
-  }
-}
-
-function expectBlocked(
-  agent: Vendor,
-  stdout: string,
-  reasonMatch: string,
-): void {
-  if (agent === 'claude-code' || agent === 'github-copilot-chat') {
-    const response = parseAs<ClaudeCodeResponse>(stdout)
-    expect(response.hookSpecificOutput.permissionDecision).toBe('deny')
-    expect(response.hookSpecificOutput.permissionDecisionReason).toContain(
-      reasonMatch,
-    )
-  } else if (agent === 'codex') {
-    const response = parseAs<CodexResponse>(stdout)
-    expect(response.decision).toBe('block')
-    expect(response.reason).toContain(reasonMatch)
-  } else if (agent === 'github-copilot') {
-    const response = parseAs<CopilotResponse>(stdout)
-    expect(response.permissionDecision).toBe('deny')
-    expect(response.permissionDecisionReason).toContain(reasonMatch)
   }
 }
