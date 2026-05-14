@@ -21,75 +21,54 @@ const AI_TIMEOUT = 60_000
 describe.skipIf(!runAi)(
   'enforce-tdd + codex (integration with real AI)',
   () => {
-    it(
-      'allows clean TDD with minimal implementation',
-      async () => {
-        const result = await runScenario({
-          transcript: 'test/fixtures/transcripts/codex-tdd-test-failed.jsonl',
-          pendingContent: MINIMAL_IMPL,
-        })
+    it('allows clean TDD with minimal implementation', async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/codex-tdd-test-failed.jsonl',
+        pendingContent: MINIMAL_IMPL,
+      })
 
-        expectDecision(result, 'allow')
-      },
-      AI_TIMEOUT,
-    )
+      expectDecision(result, 'allow')
+    })
 
-    it(
-      'blocks clear over-implementation',
-      async () => {
-        const result = await runScenario({
-          transcript: 'test/fixtures/transcripts/codex-tdd-test-failed.jsonl',
-          pendingContent: OVER_IMPL,
-        })
+    it('blocks clear over-implementation', async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/codex-tdd-test-failed.jsonl',
+        pendingContent: OVER_IMPL,
+      })
 
-        expectDecision(result, 'block')
-      },
-      AI_TIMEOUT,
-    )
+      expectDecision(result, 'block')
+    })
 
-    it(
-      'blocks implementation when the failing test has not been run',
-      async () => {
-        const result = await runScenario({
-          transcript: 'test/fixtures/transcripts/codex-tdd-no-test-run.jsonl',
-          pendingContent: MINIMAL_IMPL,
-        })
+    it('blocks implementation when the failing test has not been run', async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/codex-tdd-no-test-run.jsonl',
+        pendingContent: MINIMAL_IMPL,
+      })
 
-        expectDecision(result, 'block')
-      },
-      AI_TIMEOUT,
-    )
+      expectDecision(result, 'block')
+    })
 
-    it(
-      'allows adding a second test to an existing test file',
-      async () => {
-        const result = await runScenario({
-          transcript:
-            'test/fixtures/transcripts/codex-tdd-cycle-completed.jsonl',
-          beforeFile: EXISTING_TEST_CONTENT,
-          pendingContent: PLUS_ONE_TEST,
-        })
+    it('allows adding a second test to an existing test file', async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/codex-tdd-cycle-completed.jsonl',
+        beforeFile: EXISTING_TEST_CONTENT,
+        pendingContent: PLUS_ONE_TEST,
+      })
 
-        expectDecision(result, 'allow')
-      },
-      AI_TIMEOUT,
-    )
+      expectDecision(result, 'allow')
+    })
 
-    it(
-      'blocks when two new tests are added in a single write',
-      async () => {
-        const result = await runScenario({
-          transcript:
-            'test/fixtures/transcripts/codex-tdd-cycle-completed.jsonl',
-          beforeFile: EXISTING_TEST_CONTENT,
-          pendingContent: PLUS_TWO_TESTS,
-        })
+    it('blocks when two new tests are added in a single write', async () => {
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/codex-tdd-cycle-completed.jsonl',
+        beforeFile: EXISTING_TEST_CONTENT,
+        pendingContent: PLUS_TWO_TESTS,
+      })
 
-        expectDecision(result, 'block')
-      },
-      AI_TIMEOUT,
-    )
+      expectDecision(result, 'block')
+    })
   },
+  AI_TIMEOUT,
 )
 
 async function runScenario(opts: {

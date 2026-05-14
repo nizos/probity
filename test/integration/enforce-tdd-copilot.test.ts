@@ -21,49 +21,37 @@ const runAi = process.env.PROBITY_INTEGRATION_AI === '1'
 const AI_TIMEOUT = 60_000
 const SESSION_ID = 'integration-copilot'
 
-describe.skipIf(!runAi)('enforce-tdd + github-copilot (integration)', () => {
-  it(
-    'allows a minimal add implementation after a failing test was run',
-    async () => {
+describe.skipIf(!runAi)(
+  'enforce-tdd + github-copilot (integration)',
+  () => {
+    it('allows a minimal add implementation after a failing test was run', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/copilot-tdd-clean.jsonl',
         pendingContent: MINIMAL_IMPL,
       })
 
       expectDecision(result, 'allow')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'blocks an over-implementation that adds many unrequested functions',
-    async () => {
+    it('blocks an over-implementation that adds many unrequested functions', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/copilot-tdd-clean.jsonl',
         pendingContent: OVER_IMPL,
       })
 
       expectDecision(result, 'deny')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'blocks implementation when the failing test has not been run',
-    async () => {
+    it('blocks implementation when the failing test has not been run', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/copilot-tdd-no-test-run.jsonl',
         pendingContent: MINIMAL_IMPL,
       })
 
       expectDecision(result, 'deny')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'allows adding a second test to an existing test file',
-    async () => {
+    it('allows adding a second test to an existing test file', async () => {
       const result = await runScenario({
         transcript:
           'test/fixtures/transcripts/copilot-tdd-cycle-completed.jsonl',
@@ -72,13 +60,9 @@ describe.skipIf(!runAi)('enforce-tdd + github-copilot (integration)', () => {
       })
 
       expectDecision(result, 'allow')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'blocks when two new tests are added in a single write',
-    async () => {
+    it('blocks when two new tests are added in a single write', async () => {
       const result = await runScenario({
         transcript:
           'test/fixtures/transcripts/copilot-tdd-cycle-completed.jsonl',
@@ -87,10 +71,10 @@ describe.skipIf(!runAi)('enforce-tdd + github-copilot (integration)', () => {
       })
 
       expectDecision(result, 'deny')
-    },
-    AI_TIMEOUT,
-  )
-})
+    })
+  },
+  AI_TIMEOUT,
+)
 
 async function runScenario(opts: {
   transcript: string

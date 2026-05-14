@@ -19,49 +19,37 @@ import {
 const runAi = process.env.PROBITY_INTEGRATION_AI === '1'
 const AI_TIMEOUT = 60_000
 
-describe.skipIf(!runAi)('enforce-tdd (integration with real AI)', () => {
-  it(
-    'allows clean TDD with minimal implementation',
-    async () => {
+describe.skipIf(!runAi)(
+  'enforce-tdd (integration with real AI)',
+  () => {
+    it('allows clean TDD with minimal implementation', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/tdd-clean.jsonl',
         pendingContent: MINIMAL_IMPL,
       })
 
       expectDecision(result, 'allow')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'blocks clear over-implementation',
-    async () => {
+    it('blocks clear over-implementation', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/tdd-over-impl.jsonl',
         pendingContent: OVER_IMPL,
       })
 
       expectDecision(result, 'deny')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'blocks implementation when the failing test has not been run',
-    async () => {
+    it('blocks implementation when the failing test has not been run', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/tdd-no-test-run.jsonl',
         pendingContent: MINIMAL_IMPL,
       })
 
       expectDecision(result, 'deny')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'allows adding a second test to an existing test file',
-    async () => {
+    it('allows adding a second test to an existing test file', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
         beforeFile: EXISTING_TEST_CONTENT,
@@ -69,13 +57,9 @@ describe.skipIf(!runAi)('enforce-tdd (integration with real AI)', () => {
       })
 
       expectDecision(result, 'allow')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'blocks when two new tests are added in a single write',
-    async () => {
+    it('blocks when two new tests are added in a single write', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
         beforeFile: EXISTING_TEST_CONTENT,
@@ -83,23 +67,19 @@ describe.skipIf(!runAi)('enforce-tdd (integration with real AI)', () => {
       })
 
       expectDecision(result, 'deny')
-    },
-    AI_TIMEOUT,
-  )
+    })
 
-  it(
-    'allows a stub when a recent failing test is buried under noisy follow-up reads',
-    async () => {
+    it('allows a stub when a recent failing test is buried under noisy follow-up reads', async () => {
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
         pendingContent: MODULO_STUB_IMPL,
       })
 
       expectDecision(result, 'allow')
-    },
-    AI_TIMEOUT,
-  )
-})
+    })
+  },
+  AI_TIMEOUT,
+)
 
 async function runScenario(opts: {
   transcript: string
