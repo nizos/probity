@@ -22,7 +22,7 @@ const AI_TIMEOUT = 60_000
 const SESSION_ID = 'integration-copilot'
 
 describe.skipIf(!runAi)(
-  'enforce-tdd + github-copilot (integration)',
+  'enforce-tdd + github-copilot',
   () => {
     it('allows a minimal add implementation after a failing test was run', async () => {
       const result = await runScenario({

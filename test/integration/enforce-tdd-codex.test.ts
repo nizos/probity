@@ -19,7 +19,7 @@ const runAi = process.env.PROBITY_INTEGRATION_AI === '1'
 const AI_TIMEOUT = 60_000
 
 describe.skipIf(!runAi)(
-  'enforce-tdd + codex (integration with real AI)',
+  'enforce-tdd + codex',
   () => {
     it('allows clean TDD with minimal implementation', async () => {
       const result = await runScenario({

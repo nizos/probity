@@ -48,7 +48,7 @@ describe('probity cli (integration)', () => {
     expect(decodeResponse('claude-code', getStdout()).decision).toBe('deny')
   })
 
-  it('runs main() when invoked via a symlink (the npx case)', async () => {
+  it('runs main() when invoked via a symlink', async () => {
     const sandbox = await createSandbox({
       probity: (api) => api.symlink(path.resolve('dist/bin.js')),
     })
