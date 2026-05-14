@@ -121,6 +121,53 @@ describe('probity cli (integration)', () => {
     expect(getRawStdout().trim()).toMatch(/^\d+\.\d+\.\d+/)
   })
 
+  it('discovers `probity.config.ts` via walk-up from process.cwd() when no --config is given, resolving `@nizos/probity` from outside the package tree', async () => {
+    const projectRoot = await createScratchDir()
+    const subdir = path.join(projectRoot, 'pkg-a')
+    const filePath = path.join(subdir, 'src', 'foo.ts')
+    await mkdir(path.dirname(filePath), { recursive: true })
+
+    const configPath = path.join(projectRoot, 'probity.config.ts')
+    await writeFile(
+      configPath,
+      `import { defineConfig, forbidContentPattern } from '@nizos/probity'
+
+export default defineConfig({
+  rules: [
+    {
+      files: ['**/src/**'],
+      rules: [forbidContentPattern({ match: /./, reason: 'walk-up discovery fired' })],
+    },
+  ],
+})
+`,
+    )
+
+    const stdin = buildClaudeCodeWritePayload({ cwd: subdir, filePath })
+    const result = await new Promise<{ stdout: string; stderr: string }>(
+      (resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          [path.resolve('dist/bin.js'), '--agent', 'claude-code'],
+          { cwd: subdir, stdio: ['pipe', 'pipe', 'pipe'] },
+        )
+        let stdout = ''
+        let stderr = ''
+        child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
+        child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
+        child.on('close', () => resolve({ stdout, stderr }))
+        child.on('error', reject)
+        child.stdin.end(stdin)
+      },
+    )
+
+    const response = parseAs<ClaudeCodeResponse>(result.stdout)
+    expect(response.hookSpecificOutput.permissionDecision).toBe('deny')
+    expect(response.hookSpecificOutput.permissionDecisionReason).toContain(
+      'walk-up discovery fired',
+    )
+  })
+
   it('matches a config rule scoped at the config root when the session opens in a subdirectory', async () => {
     const projectRoot = await createScratchDir()
     const example = path.join(projectRoot, 'example')
