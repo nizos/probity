@@ -8,7 +8,7 @@ import { describe, it, onTestFinished } from 'vitest'
 import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
-import { expectDecision } from './expect-decision.js'
+import { expectDecision } from './helpers/expect-decision.js'
 
 const runAi = process.env.PROBITY_INTEGRATION_AI === '1'
 

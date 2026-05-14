@@ -1,7 +1,7 @@
 import type { PreToolUseHookInput } from '@anthropic-ai/claude-agent-sdk'
 import type { FileWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools'
 
-import type { Vendor } from '../../src/cli.js'
+import type { Vendor } from '../../../src/cli.js'
 
 export type ClaudeCodeWriteAction = Omit<
   PreToolUseHookInput,

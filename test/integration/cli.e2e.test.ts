@@ -10,7 +10,7 @@ import type { Vendor } from '../../src/cli.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
 import type { ResponseShape as CodexResponse } from '../../src/vendors/codex/adapter.js'
-import { runBin } from './run-bin.js'
+import { runBin } from './helpers/run-bin.js'
 
 const CONFIG_FIXTURE = 'test/fixtures/configs/kebab-only.config.ts'
 

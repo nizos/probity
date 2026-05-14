@@ -2,9 +2,12 @@ import { createFixture, type FileTree } from 'fs-fixture'
 import { describe, it, expect, onTestFinished } from 'vitest'
 
 import type { Vendor } from '../../src/cli.js'
-import { decodeResponse, type DecodedResponse } from './decode-response.js'
-import { runBin } from './run-bin.js'
-import { createWriteAction } from './write-actions.js'
+import {
+  decodeResponse,
+  type DecodedResponse,
+} from './helpers/decode-response.js'
+import { runBin } from './helpers/run-bin.js'
+import { createWriteAction } from './helpers/write-actions.js'
 
 const CONSOLE_LOG_CONTENT = "console.log('fetch failed', err)"
 const CONSOLE_RULE_REASON = 'No console.* in TypeScript source'

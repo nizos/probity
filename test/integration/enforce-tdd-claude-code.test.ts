@@ -8,7 +8,7 @@ import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
-import { expectDecision } from './expect-decision.js'
+import { expectDecision } from './helpers/expect-decision.js'
 
 const runAi = process.env.PROBITY_INTEGRATION_AI === '1'
 
