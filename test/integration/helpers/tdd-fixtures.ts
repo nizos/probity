@@ -78,9 +78,11 @@ export const MODULO_STUB_IMPL = `export function modulo(a: number, b: number): n
 }
 `
 
-// "Looks like a test file" heuristic. Used by setups to place the
-// pending write under target.test.ts vs target.ts so the rule's
-// "is this a test or impl?" classifier sees the expected name.
+/**
+ * "Looks like a test file" heuristic. Used by setups to place the
+ * pending write under target.test.ts vs target.ts so the rule's
+ * "is this a test or impl?" classifier sees the expected name.
+ */
 export function targetFilename(content: string): string {
   return /describe\(|\bit\(/.test(content) ? 'target.test.ts' : 'target.ts'
 }

@@ -83,8 +83,10 @@ async function runWithDiagnostics(
   return result
 }
 
-// Returns the stdin alongside the result so the diagnostic logger can
-// see both even when stdin resolution itself was the failure.
+/**
+ * Returns the stdin alongside the result so the diagnostic logger can
+ * see both even when stdin resolution itself was the failure.
+ */
 async function runOrFailClosed(
   parsed: RunArgs,
   args: MainArgs,
@@ -106,8 +108,10 @@ function resolveStdin(stdin: string | (() => string)): string {
   return typeof stdin === 'function' ? stdin() : stdin
 }
 
-// Most agents treat a non-zero exit as advisory and would let the
-// action through; we emit a vendor-shaped block on stdout instead.
+/**
+ * Most agents treat a non-zero exit as advisory and would let the
+ * action through; we emit a vendor-shaped block on stdout instead.
+ */
 function failClosed(vendor: Vendor, error: unknown): MainResult {
   const reason = error instanceof Error ? error.message : String(error)
   const block = vendors[vendor].adapter.toResponse({
@@ -148,8 +152,10 @@ function loaderFromPath(
     : undefined
 }
 
-// argv[1] is a shim path under npx / node_modules/.bin; resolve the
-// symlink before comparing or main() never runs.
+/**
+ * argv[1] is a shim path under npx / node_modules/.bin; resolve the
+ * symlink before comparing or main() never runs.
+ */
 function isInvokedAsScript(): boolean {
   const argv1 = process.argv[1]
   if (!argv1) return false

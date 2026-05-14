@@ -259,9 +259,11 @@ export default defineConfig({ rules: ${rules} })
 `
 }
 
-// Stamps out a write action for `agent`, fires the bin against `cwd`,
-// and returns the decoded response. The fixture and config setup is the
-// caller's responsibility — this is just the action-and-spawn core.
+/**
+ * Stamps out a write action for `agent`, fires the bin against `cwd`,
+ * and returns the decoded response. The fixture and config setup is the
+ * caller's responsibility — this is just the action-and-spawn core.
+ */
 async function runWriteAction(opts: {
   agent: Vendor
   cwd: string

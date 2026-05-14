@@ -56,8 +56,10 @@ export async function applyEdit(
   return { ok: true, content }
 }
 
-// Files persisted on Windows commonly use CRLF while agents normalize
-// the JSON payload to LF; matching in LF-space avoids spurious misses.
+/**
+ * Files persisted on Windows commonly use CRLF while agents normalize
+ * the JSON payload to LF; matching in LF-space avoids spurious misses.
+ */
 function toLF(s: string): string {
   return s.replace(/\r\n/g, '\n')
 }

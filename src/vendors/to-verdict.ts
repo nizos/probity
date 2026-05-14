@@ -50,9 +50,11 @@ function parseVerdict(text: string): Verdict {
   return result.data
 }
 
-// Tries the whole text, then the text minus a ```json fence, then
-// scans for a JSON object embedded after prose. Models often "show
-// their work" before the answer; the verdict object lives at the end.
+/**
+ * Tries the whole text, then the text minus a ```json fence, then
+ * scans for a JSON object embedded after prose. Models often "show
+ * their work" before the answer; the verdict object lives at the end.
+ */
 function tryParseJson(text: string): unknown {
   return (
     safeParse(text.trim()) ??
@@ -86,8 +88,10 @@ function findEmbeddedObject(text: string): unknown {
   return undefined
 }
 
-// Returns the substring of `text` from `start` (a `{`) up to its
-// matching `}`, or undefined if the braces don't balance.
+/**
+ * Returns the substring of `text` from `start` (a `{`) up to its
+ * matching `}`, or undefined if the braces don't balance.
+ */
 function scanBalanced(text: string, start: number): string | undefined {
   let depth = 0
   let inString = false

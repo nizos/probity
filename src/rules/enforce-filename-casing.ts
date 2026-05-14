@@ -38,9 +38,11 @@ const pass: RuleResult = { kind: 'pass' }
 
 // kebab-case: no uppercase, no underscores in the filename.
 const violatesKebab = (name: string): boolean => /[A-Z_]/.test(name)
-// camelCase: filename must not start with an uppercase letter and must
-// not contain hyphens. Catches PascalCase (`UserProfile.ts`) and
-// kebab-cased filenames.
+/**
+ * camelCase: filename must not start with an uppercase letter and must
+ * not contain hyphens. Catches PascalCase (`UserProfile.ts`) and
+ * kebab-cased filenames.
+ */
 const violatesCamel = (name: string): boolean =>
   name.includes('-') || /^[A-Z]/.test(name)
 // snake_case: no uppercase anywhere in the filename.

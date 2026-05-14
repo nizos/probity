@@ -6,9 +6,11 @@ import type { ResponseShape as CopilotResponse } from '../../../src/vendors/gith
 
 export type DecodedResponse = { decision: 'allow' | 'deny'; reason?: string }
 
-// Normalizes each vendor's deny shape (claude-code/copilot-chat nest under
-// hookSpecificOutput; codex says `block` while others say `deny`) into a
-// single `{ decision, reason }` so tests can assert against one shape.
+/**
+ * Normalizes each vendor's deny shape (claude-code/copilot-chat nest under
+ * hookSpecificOutput; codex says `block` while others say `deny`) into a
+ * single `{ decision, reason }` so tests can assert against one shape.
+ */
 export function decodeResponse(agent: Vendor, stdout: string): DecodedResponse {
   if (stdout === '') return { decision: 'allow' }
   return decoders[agent](stdout)

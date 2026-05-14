@@ -95,9 +95,11 @@ export async function loadConfig(filepath: string): Promise<Config> {
   }
 }
 
-// `**`-prefixed globs are intentional "match anywhere" patterns; anchoring
-// them at the config dir would defeat the user's intent. Negations carry
-// the same convention through the `!` prefix.
+/**
+ * `**`-prefixed globs are intentional "match anywhere" patterns; anchoring
+ * them at the config dir would defeat the user's intent. Negations carry
+ * the same convention through the `!` prefix.
+ */
 function anchorGlob(glob: string, root: string): string {
   if (glob.startsWith('!')) return '!' + anchorGlob(glob.slice(1), root)
   if (glob.startsWith('**')) return glob

@@ -15,13 +15,15 @@ export type RunBinOptions = {
   payload?: string
 }
 
-// Spawns the probity bin as a child process, writes `payload` to stdin,
-// and collects stdout/stderr. Used by integration tests that need real
-// process boundaries (argv parsing, --agent dispatch, exit behavior)
-// instead of calling `run()` from src/cli.js directly.
-//
-// Throws if the child exits with a non-zero code or is terminated by a
-// signal, so a crashed bin can't masquerade as an `allow` (empty stdout).
+/**
+ * Spawns the probity bin as a child process, writes `payload` to stdin,
+ * and collects stdout/stderr. Used by integration tests that need real
+ * process boundaries (argv parsing, --agent dispatch, exit behavior)
+ * instead of calling `run()` from src/cli.js directly.
+ *
+ * Throws if the child exits with a non-zero code or is terminated by a
+ * signal, so a crashed bin can't masquerade as an `allow` (empty stdout).
+ */
 export async function runBin(opts: RunBinOptions = {}): Promise<RunBinResult> {
   const binPath = path.resolve(opts.binPath ?? 'dist/bin.js')
   const child = spawn(process.execPath, [binPath, ...(opts.args ?? [])], {
