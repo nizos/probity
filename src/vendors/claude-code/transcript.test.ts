@@ -52,6 +52,32 @@ describe('claude-code transcript', () => {
     expect(events).toEqual([{ kind: 'prompt', text: 'hello' }])
   })
 
+  it('drops Edit/Write tool calls whose tool_result was an error (e.g. blocked by a hook), since the file did not actually change', async () => {
+    const events = await readTranscript(
+      'test/fixtures/transcripts/blocked-edit.jsonl',
+    )
+
+    expect(events).toContainEqual({
+      kind: 'action',
+      tool: 'Bash',
+      input: { command: 'npm test' },
+      output: '1 test failed',
+      toolUseId: 'tu_bash',
+    })
+    expect(events).toContainEqual({
+      kind: 'action',
+      tool: 'Edit',
+      input: { file_path: 'src/calc.ts', old_string: 'a', new_string: 'b' },
+      output: 'The file has been updated successfully',
+      toolUseId: 'tu_edit_kept',
+    })
+    expect(
+      events.find(
+        (e) => e.kind === 'action' && e.toolUseId === 'tu_edit_blocked',
+      ),
+    ).toBeUndefined()
+  })
+
   it('returns events in the order they appear in the transcript', async () => {
     const events = await readTranscript(
       'test/fixtures/transcripts/interleaved.jsonl',

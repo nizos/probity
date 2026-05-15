@@ -14,12 +14,15 @@ const ContentItemSchema = z.discriminatedUnion('type', [
     type: z.literal('tool_result'),
     content: z.string(),
     tool_use_id: z.string(),
+    is_error: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('text'),
     text: z.string(),
   }),
 ])
+
+const FILE_WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
 
 const EntrySchema = z.object({
   type: z.string().optional(),
@@ -33,6 +36,7 @@ export async function readTranscript(
   const entries = await readJsonl(path, options)
   const pending = new Map<string, RawSessionEvent>()
   const emitted: RawSessionEvent[] = []
+  const droppedToolUseIds = new Set<string>()
 
   for (const rawEntry of entries) {
     const entry = EntrySchema.safeParse(rawEntry)
@@ -57,11 +61,17 @@ export async function readTranscript(
         const existing = pending.get(item.tool_use_id)
         if (existing && existing.kind === 'action') {
           existing.output = item.content
+          if (item.is_error === true && FILE_WRITE_TOOLS.has(existing.tool)) {
+            droppedToolUseIds.add(item.tool_use_id)
+          }
         }
       } else if (item.type === 'text' && entry.data.type === 'user') {
         emitted.push({ kind: 'prompt', text: item.text })
       }
     }
   }
-  return emitted
+  return emitted.filter(
+    (event) =>
+      event.kind !== 'action' || !droppedToolUseIds.has(event.toolUseId),
+  )
 }
