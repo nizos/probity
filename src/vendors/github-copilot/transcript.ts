@@ -21,14 +21,23 @@ const ToolCompleteSchema = z.object({
   type: z.literal('tool.execution_complete'),
   data: z.object({
     toolCallId: z.string(),
+    success: z.boolean().optional(),
     result: z
       .object({
         content: z.string().optional(),
         detailedContent: z.string().optional(),
       })
       .optional(),
+    error: z
+      .object({
+        message: z.string().optional(),
+        code: z.string().optional(),
+      })
+      .optional(),
   }),
 })
+
+const FILE_WRITE_TOOLS = new Set(['create', 'edit'])
 
 export async function readTranscript(
   path: string,
@@ -37,6 +46,7 @@ export async function readTranscript(
   const entries = await readJsonl(path, options)
   const pending = new Map<string, RawSessionEvent>()
   const emitted: RawSessionEvent[] = []
+  const droppedToolUseIds = new Set<string>()
   for (const rawEntry of entries) {
     const user = UserMessageSchema.safeParse(rawEntry)
     if (user.success) {
@@ -63,9 +73,19 @@ export async function readTranscript(
         existing.output =
           complete.data.data.result?.content ??
           complete.data.data.result?.detailedContent ??
+          complete.data.data.error?.message ??
           ''
+        if (
+          complete.data.data.success === false &&
+          FILE_WRITE_TOOLS.has(existing.tool)
+        ) {
+          droppedToolUseIds.add(complete.data.data.toolCallId)
+        }
       }
     }
   }
-  return emitted
+  return emitted.filter(
+    (event) =>
+      event.kind !== 'action' || !droppedToolUseIds.has(event.toolUseId),
+  )
 }
