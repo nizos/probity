@@ -120,19 +120,27 @@ function formatInput(input: unknown): string {
   return JSON.stringify(input)
 }
 
+// `present`: file exists and we could read it. `absent`: path resolves to
+// nothing on disk (genuine new-file write). `unreadable`: path resolves to
+// something, but the defenses (`O_NOFOLLOW` for symlinks,
+// `MAX_BEFORE_CONTENT_BYTES` for oversize, any other open/stat/read error)
+// refused to surface its content. The three were collapsed into a single
+// `undefined` return before, which made the validator think a symlinked or
+// oversized file did not exist.
+type BeforeContent =
+  | { kind: 'present'; content: string }
+  | { kind: 'absent' }
+  | { kind: 'unreadable' }
+
 function buildPrompt(
   rules: string,
   historyBlock: string,
-  beforeContent: string | undefined,
+  before: BeforeContent,
   action: { path: string; content: string },
 ): string {
   const sections = [PROCESS_INSTRUCTIONS, rules]
   if (historyBlock) sections.push(`## Recent session\n\n${historyBlock}`)
-  sections.push(
-    beforeContent === undefined
-      ? `## Current file content\n\n(file does not exist)`
-      : `## Current file content\n\n${beforeContent}`,
-  )
+  sections.push(`## Current file content\n\n${formatBefore(before)}`)
   sections.push(
     `## Pending action\n\nFile: ${action.path}\n\n${action.content}`,
   )
@@ -140,22 +148,42 @@ function buildPrompt(
   return sections.join('\n\n')
 }
 
-async function readBeforeContent(path: string): Promise<string | undefined> {
+function formatBefore(before: BeforeContent): string {
+  switch (before.kind) {
+    case 'present':
+      return before.content
+    case 'absent':
+      return '(file does not exist)'
+    case 'unreadable':
+      return '(current file content is unreadable: the path resolves to something on disk but could not be opened — likely a symbolic link, a file over the size cap, or otherwise inaccessible)'
+  }
+}
+
+async function readBeforeContent(path: string): Promise<BeforeContent> {
   let handle
   try {
     handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
-  } catch {
-    return undefined
+  } catch (error) {
+    if (isErrnoCode(error, 'ENOENT')) return { kind: 'absent' }
+    return { kind: 'unreadable' }
   }
   try {
     const info = await handle.stat()
-    if (info.size > MAX_BEFORE_CONTENT_BYTES) return undefined
-    return await handle.readFile('utf8')
+    if (info.size > MAX_BEFORE_CONTENT_BYTES) return { kind: 'unreadable' }
+    return { kind: 'present', content: await handle.readFile('utf8') }
   } catch {
-    return undefined
+    return { kind: 'unreadable' }
   } finally {
     await handle.close()
   }
+}
+
+function isErrnoCode(error: unknown, code: string): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as { code: unknown }).code === code
+  )
 }
 
 /**
@@ -222,27 +250,32 @@ export function enforceTdd(
   const fastPath = options.fastPath ?? true
   return async (action: Action, ctx?: RuleContext): Promise<RuleResult> => {
     if (action.kind !== 'write') return { kind: 'pass' }
-    const beforeContent = await readBeforeContent(action.path)
-    if (fastPath && isSingleNewTest(action, beforeContent)) {
+    const before = await readBeforeContent(action.path)
+    if (fastPath && isSingleNewTest(action, before)) {
       return { kind: 'pass' }
     }
-    return validateWithAi(action, ctx, beforeContent, rules, window)
+    return validateWithAi(action, ctx, before, rules, window)
   }
 }
 
+// The fast-path is a deterministic check on `count_after - count_before === 1`.
+// `unreadable` leaves `count_before` unknowable, so any delta we compute is
+// unverifiable; fall through to the AI rather than risk a false-pass.
 function isSingleNewTest(
   action: { path: string; content: string },
-  beforeContent: string | undefined,
+  before: BeforeContent,
 ): boolean {
+  if (before.kind === 'unreadable') return false
   const language = inferLanguage(action.path)
   if (!language) return false
-  return countNewTestNodes(beforeContent ?? '', action.content, language) === 1
+  const beforeText = before.kind === 'present' ? before.content : ''
+  return countNewTestNodes(beforeText, action.content, language) === 1
 }
 
 async function validateWithAi(
   action: { path: string; content: string },
   ctx: RuleContext | undefined,
-  beforeContent: string | undefined,
+  before: BeforeContent,
   rules: string,
   window: HistoryWindow,
 ): Promise<RuleResult> {
@@ -256,7 +289,7 @@ async function validateWithAi(
   const events = (await ctx.rawHistory?.()) ?? []
   const windowed = trimHistory(events, window)
   const historyBlock = windowed.map(formatEvent).join('\n')
-  const prompt = buildPrompt(rules, historyBlock, beforeContent, action)
+  const prompt = buildPrompt(rules, historyBlock, before, action)
   const verdict = await ctx.agent.reason(prompt)
   if (verdict.kind === 'violation') {
     return { kind: 'violation', reason: verdict.reason }

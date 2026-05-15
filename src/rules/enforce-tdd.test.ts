@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -172,6 +172,73 @@ describe('enforce-tdd', () => {
     )
 
     expect(s.capturedPrompt).toContain('export const previous = 1')
+  })
+
+  it('tells the AI a path is unreadable rather than absent when it resolves through a symlink (O_NOFOLLOW refuses the open but the file is really there)', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'enforce-tdd-symlink-'))
+    onTestFinished(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+    const realPath = path.join(dir, 'real-test.ts')
+    const linkPath = path.join(dir, 'link-test.ts')
+    await writeFile(realPath, `describe('x', () => { it('a', () => {}) })\n`)
+    await symlink(realPath, linkPath)
+    const s = setup()
+
+    await s.rule(
+      {
+        kind: 'write',
+        path: linkPath,
+        content: `describe('x', () => { it('a', () => {}); it('b', () => {}) })\n`,
+      },
+      s.ctx,
+    )
+
+    const fileSection = sectionAfter(
+      s.capturedPrompt,
+      '## Current file content',
+    )
+    expect(fileSection).not.toMatch(/file does not exist/i)
+    expect(fileSection).toMatch(/unreadable|inaccessible/i)
+  })
+
+  it('does not fast-path a write through a symlink even when the post-edit content has a single test (before-content is unknown so the diff is unverifiable)', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'enforce-tdd-symlink-fp-'))
+    onTestFinished(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+    const realPath = path.join(dir, 'real-empty-test.ts')
+    const linkPath = path.join(dir, 'link-empty-test.ts')
+    await writeFile(realPath, '')
+    await symlink(realPath, linkPath)
+    const s = setup()
+
+    await s.rule(
+      {
+        kind: 'write',
+        path: linkPath,
+        content: `describe('x', () => { it('a', () => {}) })\n`,
+      },
+      s.ctx,
+    )
+
+    expect(s.agentCalled).toBe(true)
+  })
+
+  it('still tells the AI "(file does not exist)" when the path genuinely has no file there', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'enforce-tdd-missing-'))
+    onTestFinished(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+    const filePath = path.join(dir, 'never-created.ts')
+    const s = setup()
+
+    await s.rule(
+      { kind: 'write', path: filePath, content: 'export const fresh = 1' },
+      s.ctx,
+    )
+
+    expect(s.capturedPrompt).toMatch(/file does not exist/i)
   })
 
   it('renders object event inputs without escape noise', async () => {
@@ -363,4 +430,12 @@ function writeAction(
   content = 'export const add = (a, b) => a + b',
 ): Action {
   return { kind: 'write', path, content }
+}
+
+function sectionAfter(prompt: string, heading: string): string {
+  const start = prompt.indexOf(heading)
+  if (start < 0) throw new Error(`heading not found: ${heading}`)
+  const body = prompt.slice(start + heading.length)
+  const next = body.indexOf('\n## ')
+  return next < 0 ? body : body.slice(0, next)
 }
