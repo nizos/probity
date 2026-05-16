@@ -18,5 +18,5 @@ Process discipline for coding agents. A vendor-agnostic policy engine that sits 
 - `src/{cli,bin,config,engine,index}.ts` — application wiring
 - `test/fixtures/` — captured hook payloads, transcript fixtures, and config-loading scenarios used across unit and integration tests
 - `test/integration/` — end-to-end tests; the AI-gated ones (`enforce-tdd-*`) require `PROBITY_INTEGRATION_AI=1`, the others run unconditionally
-- `test/integration/helpers/` — shared integration-test helpers (`runBin`, `decodeResponse`, `createWriteAction`, `expectDecision`)
+- `test/integration/helpers/` — shared integration-test helpers (`runBin`, `decodeResponse`, `createWriteAction`, `createSandbox`, `expectDecision`)
 - `docs/adr/` — ADRs documenting load-bearing decisions and their rationale
