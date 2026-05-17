@@ -17,8 +17,8 @@ export default defineConfig({
       files: ['src/**', 'test/**'],
       rules: [
         enforceTdd({
-          maxEvents: 30,
-          maxContentChars: 8000,
+          maxEvents: 12,
+          maxContentChars: 10000,
         }),
         forbidContentPattern({
           match: 'eslint-disable',
