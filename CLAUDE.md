@@ -11,7 +11,7 @@ Process discipline for coding agents. A vendor-agnostic policy engine that sits 
 
 - `src/types.ts` — canonical types (Action, Decision, Agent, Verdict, RawSessionEvent, SessionEvent)
 - `src/rules/` — built-in rules + `contract.ts` (Rule type); `rules/utils/` holds shared rule helpers; `rules/matchers/` holds the ast-grep-backed test-node diff helper and per-language modules consumed by enforceTdd's fast-path
-- `src/utils/` — cross-cutting helpers (json-string, parse-args, parse-as, read-capped, read-jsonl)
+- `src/utils/` — cross-cutting helpers (json-string, parse-args, parse-as, read-capped, read-jsonl, safe-read)
 - `src/vendors/<vendor>/{adapter,agent,event,transcript}.ts` — per-vendor pieces (agents may be shared via the registry; `event.ts` classifies raw events to canonical)
 - `src/vendors/{adapter,apply-edit,to-verdict,posix-absolute,relativize-path}.ts` — adapter contract, shared Edit-substitution helper, AI verdict parser, and POSIX path normalization helpers
 - `src/registry.ts` — vendor entries (adapter + agent + transcript + canonical-event classifier per vendor)
