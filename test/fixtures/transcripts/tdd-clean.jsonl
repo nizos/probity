@@ -3,3 +3,7 @@
 {"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_1","content":"File written"}]}}
 {"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_2","name":"Bash","input":{"command":"npm test"}}]}}
 {"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_2","content":"FAIL src/add.test.ts\n  add > sums two numbers\n    ReferenceError: add is not defined\n\nTest Files  1 failed\n     Tests  1 failed"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_3","name":"Write","input":{"file_path":"src/add.ts","content":"export function add(_a: number, _b: number): number {\n  throw new Error('not implemented')\n}\n"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_3","content":"File written"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_4","name":"Bash","input":{"command":"npm test"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_4","content":"FAIL src/add.test.ts\n  add > sums two numbers\n    Error: not implemented\n    at add (src/add.ts:2:9)\n    at src/add.test.ts:6:12\n\nTest Files  1 failed\n     Tests  1 failed"}]}}
