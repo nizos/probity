@@ -1,15 +1,11 @@
-import { constants } from 'node:fs'
-import { open } from 'node:fs/promises'
-
 import type { Action, RawSessionEvent } from '../types.js'
-import type { RuleContext, RuleResult } from './contract.js'
+import type { FileContent, RuleContext, RuleResult } from './contract.js'
 import { countNewTestNodes } from './matchers/count-new-test-nodes.js'
 import { inferLanguage } from './matchers/languages/index.js'
 import { trimHistory, type HistoryWindow } from './trim-history.js'
 
 const DEFAULT_MAX_EVENTS = 10
 const DEFAULT_MAX_CONTENT_CHARS = 6000
-const MAX_BEFORE_CONTENT_BYTES = 1024 * 1024
 
 const PROCESS_INSTRUCTIONS = `## Role
 
@@ -25,7 +21,8 @@ You will see three inputs:
    observed back. Use this to find evidence of a failing test that the
    pending write would address.
 2. "Current file content" — what's on disk right now at the file the
-   agent is about to write. May be absent if the file does not exist.
+   agent is about to write. May be a parenthesized marker (e.g.
+   \`(file does not exist)\`) when content cannot be shown.
 3. "Pending action" — what the agent is about to write. Content may be
    raw file text or a patch/diff in any common format.`
 
@@ -120,22 +117,10 @@ function formatInput(input: unknown): string {
   return JSON.stringify(input)
 }
 
-// `present`: file exists and we could read it. `absent`: path resolves to
-// nothing on disk (genuine new-file write). `unreadable`: path resolves to
-// something, but the defenses (`O_NOFOLLOW` for symlinks,
-// `MAX_BEFORE_CONTENT_BYTES` for oversize, any other open/stat/read error)
-// refused to surface its content. The three were collapsed into a single
-// `undefined` return before, which made the validator think a symlinked or
-// oversized file did not exist.
-type BeforeContent =
-  | { kind: 'present'; content: string }
-  | { kind: 'absent' }
-  | { kind: 'unreadable' }
-
 function buildPrompt(
   rules: string,
   historyBlock: string,
-  before: BeforeContent,
+  before: FileContent,
   action: { path: string; content: string },
 ): string {
   const sections = [PROCESS_INSTRUCTIONS, rules]
@@ -148,42 +133,15 @@ function buildPrompt(
   return sections.join('\n\n')
 }
 
-function formatBefore(before: BeforeContent): string {
+function formatBefore(before: FileContent): string {
   switch (before.kind) {
     case 'present':
       return before.content
     case 'absent':
       return '(file does not exist)'
-    case 'unreadable':
-      return '(current file content is unreadable: the path resolves to something on disk but could not be opened — likely a symbolic link, a file over the size cap, or otherwise inaccessible)'
+    case 'unknown':
+      return '(current file content unavailable)'
   }
-}
-
-async function readBeforeContent(path: string): Promise<BeforeContent> {
-  let handle
-  try {
-    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
-  } catch (error) {
-    if (isErrnoCode(error, 'ENOENT')) return { kind: 'absent' }
-    return { kind: 'unreadable' }
-  }
-  try {
-    const info = await handle.stat()
-    if (info.size > MAX_BEFORE_CONTENT_BYTES) return { kind: 'unreadable' }
-    return { kind: 'present', content: await handle.readFile('utf8') }
-  } catch {
-    return { kind: 'unreadable' }
-  } finally {
-    await handle.close()
-  }
-}
-
-function isErrnoCode(error: unknown, code: string): boolean {
-  return (
-    error instanceof Error &&
-    'code' in error &&
-    (error as { code: unknown }).code === code
-  )
 }
 
 /**
@@ -250,7 +208,9 @@ export function enforceTdd(
   const fastPath = options.fastPath ?? true
   return async (action: Action, ctx?: RuleContext): Promise<RuleResult> => {
     if (action.kind !== 'write') return { kind: 'pass' }
-    const before = await readBeforeContent(action.path)
+    const before: FileContent = (await ctx?.readFile?.(action.path)) ?? {
+      kind: 'unknown',
+    }
     if (fastPath && isSingleNewTest(action, before)) {
       return { kind: 'pass' }
     }
@@ -259,13 +219,13 @@ export function enforceTdd(
 }
 
 // The fast-path is a deterministic check on `count_after - count_before === 1`.
-// `unreadable` leaves `count_before` unknowable, so any delta we compute is
+// `unknown` leaves `count_before` unknowable, so any delta we compute is
 // unverifiable; fall through to the AI rather than risk a false-pass.
 function isSingleNewTest(
   action: { path: string; content: string },
-  before: BeforeContent,
+  before: FileContent,
 ): boolean {
-  if (before.kind === 'unreadable') return false
+  if (before.kind === 'unknown') return false
   const language = inferLanguage(action.path)
   if (!language) return false
   const beforeText = before.kind === 'present' ? before.content : ''
@@ -275,7 +235,7 @@ function isSingleNewTest(
 async function validateWithAi(
   action: { path: string; content: string },
   ctx: RuleContext | undefined,
-  before: BeforeContent,
+  before: FileContent,
   rules: string,
   window: HistoryWindow,
 ): Promise<RuleResult> {

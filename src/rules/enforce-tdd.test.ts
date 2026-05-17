@@ -5,7 +5,8 @@ import path from 'node:path'
 import { describe, it, expect, onTestFinished } from 'vitest'
 
 import type { Action, RawSessionEvent, Verdict } from '../types.js'
-import type { RuleContext } from './contract.js'
+import { safeReadCapped } from '../utils/safe-read.js'
+import type { FileContent, RuleContext } from './contract.js'
 import { enforceTdd } from './enforce-tdd.js'
 
 describe('enforce-tdd', () => {
@@ -157,6 +158,17 @@ describe('enforce-tdd', () => {
     expect(s.capturedPrompt).toMatch(/three inputs|chronological/i)
   })
 
+  it('uses ctx.readFile to source the current file content for the prompt', async () => {
+    const s = setup({
+      readFile: () =>
+        Promise.resolve({ kind: 'present', content: 'TRACER_CONTENT' }),
+    })
+
+    await s.rule(writeAction('src/calc.ts', 'new content'), s.ctx)
+
+    expect(s.capturedPrompt).toContain('TRACER_CONTENT')
+  })
+
   it('includes current file content in the prompt when the file exists', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'enforce-tdd-before-'))
     onTestFinished(async () => {
@@ -199,7 +211,7 @@ describe('enforce-tdd', () => {
       '## Current file content',
     )
     expect(fileSection).not.toMatch(/file does not exist/i)
-    expect(fileSection).toMatch(/unreadable|inaccessible/i)
+    expect(fileSection).toMatch(/unavailable/i)
   })
 
   it('does not fast-path a write through a symlink even when the post-edit content has a single test (before-content is unknown so the diff is unverifiable)', async () => {
@@ -384,6 +396,7 @@ function setup(
   options: {
     verdict?: Verdict
     rawHistory?: RawSessionEvent[]
+    readFile?: (path: string) => Promise<FileContent>
     instructions?: string
     maxEvents?: number
     maxContentChars?: number
@@ -402,6 +415,7 @@ function setup(
       },
     },
     ...(events && { rawHistory: () => Promise.resolve(events) }),
+    readFile: options.readFile ?? safeReadCapped,
   }
   const rule = enforceTdd({
     ...(options.instructions !== undefined && {
