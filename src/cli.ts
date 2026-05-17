@@ -7,6 +7,9 @@ import {
 } from './config.js'
 import { evaluate } from './engine.js'
 import { vendors, type Vendor, type VendorEntry } from './registry.js'
+import { safeReadCapped } from './utils/safe-read.js'
+
+const MAX_FILE_BYTES = 1024 * 1024
 
 export type { Vendor } from './registry.js'
 
@@ -45,6 +48,7 @@ async function dispatch(
     agent,
     ...(rawHistory && { rawHistory }),
     ...(history && { history }),
+    readFile: (path) => safeReadCapped(path, { maxBytes: MAX_FILE_BYTES }),
   })
   return entry.adapter.toResponse(decision)
 }

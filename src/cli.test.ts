@@ -6,7 +6,7 @@ import { run } from './cli.js'
 import type { Config } from './config.js'
 import type { Agent, SessionEvent } from './types.js'
 import { enforceFilenameCasing } from './rules/enforce-filename-casing.js'
-import type { Rule } from './rules/contract.js'
+import type { FileContent, Rule } from './rules/contract.js'
 import { parseAs } from './utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from './vendors/claude-code/adapter.js'
 
@@ -116,6 +116,29 @@ describe('cli', () => {
 
     expect(captured).toBeDefined()
     expect(captured?.some((e) => e.kind === 'command')).toBe(true)
+  })
+
+  it('threads a ctx.readFile capability into the RuleContext for write actions', async () => {
+    let captured: FileContent | undefined
+    const captureRule: Rule = async (_action, ctx) => {
+      captured = await ctx?.readFile?.(
+        'test/fixtures/transcripts/tdd-clean.jsonl',
+      )
+      return { kind: 'pass' }
+    }
+    const payload = readFileSync(
+      'test/fixtures/claude-code/write-kebab-case.json',
+      'utf8',
+    )
+
+    await run(payload, {
+      vendor: 'claude-code',
+      loadConfig: () =>
+        Promise.resolve({ rules: [captureRule], ai: stubAgent }),
+    })
+
+    expect(captured).toBeDefined()
+    expect(captured?.kind).toBe('present')
   })
 
   it('returns a deny response when the adapter rejects the payload', async () => {

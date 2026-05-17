@@ -11,6 +11,16 @@ export type RuleResult =
   | { kind: 'violation'; reason: string }
 
 /**
+ * Result of a `ctx.readFile` call. `unknown` covers paths the engine
+ * refused to surface (symlink, size cap, I/O error); distinct from
+ * `absent`, where no file exists at all.
+ */
+export type FileContent =
+  | { kind: 'present'; content: string }
+  | { kind: 'absent' }
+  | { kind: 'unknown' }
+
+/**
  * The capabilities the engine makes available to rules. All fields are
  * optional at the type level because different adapters supply
  * different subsets. Rules should still null-check before reading.
@@ -19,6 +29,7 @@ export type RuleContext = {
   agent?: Agent
   history?: () => Promise<SessionEvent[]>
   rawHistory?: () => Promise<RawSessionEvent[]>
+  readFile?: (path: string) => Promise<FileContent>
 }
 
 /**
