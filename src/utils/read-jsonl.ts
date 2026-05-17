@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { constants } from 'node:fs'
 import { open, type FileHandle } from 'node:fs/promises'
 
@@ -17,13 +18,7 @@ export async function readJsonl(
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES
   const handle = await openNoFollow(path)
   try {
-    const info = await handle.stat()
-    if (info.size > maxBytes) {
-      throw new Error(
-        `file at ${path} exceeds ${maxBytes} bytes (got ${info.size})`,
-      )
-    }
-    const raw = await handle.readFile('utf8')
+    const raw = await readBoundedUtf8(handle, maxBytes, path)
     const entries: unknown[] = []
     for (const line of raw.split('\n')) {
       if (!line.trim()) continue
@@ -37,6 +32,25 @@ export async function readJsonl(
   } finally {
     await handle.close()
   }
+}
+
+/**
+ * Reads up to `maxBytes` from `handle` and throws if there's more. The
+ * bounded `handle.read` (rather than `stat + readFile`) closes the
+ * TOCTOU window where a concurrent writer could grow the file past the
+ * cap between size check and read.
+ */
+async function readBoundedUtf8(
+  handle: FileHandle,
+  maxBytes: number,
+  path: string,
+): Promise<string> {
+  const buf = Buffer.alloc(maxBytes + 1)
+  const { bytesRead } = await handle.read(buf, 0, maxBytes + 1, 0)
+  if (bytesRead > maxBytes) {
+    throw new Error(`file at ${path} exceeds ${maxBytes} bytes`)
+  }
+  return buf.subarray(0, bytesRead).toString('utf8')
 }
 
 async function openNoFollow(path: string): Promise<FileHandle> {
