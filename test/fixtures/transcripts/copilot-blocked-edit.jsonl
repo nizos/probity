@@ -1,0 +1,7 @@
+{"type":"user.message","data":{"content":"add a header field"}}
+{"type":"tool.execution_start","data":{"toolCallId":"call_bash","toolName":"bash","arguments":{"command":"npm test"}}}
+{"type":"tool.execution_complete","data":{"toolCallId":"call_bash","success":false,"result":{"content":"1 test failed"}}}
+{"type":"tool.execution_start","data":{"toolCallId":"call_edit_kept","toolName":"edit","arguments":{"path":"src/calc.ts","old_str":"a","new_str":"b"}}}
+{"type":"tool.execution_complete","data":{"toolCallId":"call_edit_kept","success":true,"result":{"content":"The file has been updated successfully"}}}
+{"type":"tool.execution_start","data":{"toolCallId":"call_edit_blocked","toolName":"edit","arguments":{"path":"src/calc.ts","old_str":"b","new_str":"c"}}}
+{"type":"tool.execution_complete","data":{"toolCallId":"call_edit_blocked","success":false,"error":{"message":"no failing test for this change","code":"denied"}}}

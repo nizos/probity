@@ -27,6 +27,32 @@ describe('github-copilot transcript', () => {
     expect(bashAction.toolUseId).toMatch(/^call_/)
   })
 
+  it('drops create/edit tool calls whose tool.execution_complete reports success: false (e.g. denied by a hook), since the file did not actually change', async () => {
+    const events = await readTranscript(
+      'test/fixtures/transcripts/copilot-blocked-edit.jsonl',
+    )
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        kind: 'action',
+        tool: 'bash',
+        toolUseId: 'call_bash',
+      }),
+    )
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        kind: 'action',
+        tool: 'edit',
+        toolUseId: 'call_edit_kept',
+      }),
+    )
+    expect(
+      events.find(
+        (e) => e.kind === 'action' && e.toolUseId === 'call_edit_blocked',
+      ),
+    ).toBeUndefined()
+  })
+
   it('returns events in the order they appear in the transcript', async () => {
     const events = await readTranscript(
       'test/fixtures/transcripts/copilot-basic.jsonl',

@@ -1,0 +1,7 @@
+{"type":"user","message":{"content":[{"type":"text","text":"add a header field"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_bash","name":"Bash","input":{"command":"npm test"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_bash","content":"1 test failed","is_error":true}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_edit_kept","name":"Edit","input":{"file_path":"src/calc.ts","old_string":"a","new_string":"b"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_edit_kept","content":"The file has been updated successfully"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_edit_blocked","name":"Edit","input":{"file_path":"src/calc.ts","old_string":"b","new_string":"c"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_edit_blocked","content":"no failing test for this change","is_error":true}]}}
