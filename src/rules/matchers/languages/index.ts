@@ -2,11 +2,12 @@ import path from 'node:path'
 
 import { csharp } from './csharp.js'
 import { javascript } from './javascript.js'
+import { php } from './php.js'
 import { python } from './python.js'
 import { ruby } from './ruby.js'
 import { typescript } from './typescript.js'
 
-const REGISTRY = [typescript, javascript, python, csharp, ruby] as const
+const REGISTRY = [typescript, javascript, python, csharp, ruby, php] as const
 
 export function inferLanguage(filePath: string) {
   const ext = path.extname(filePath)
