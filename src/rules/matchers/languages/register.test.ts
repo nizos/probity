@@ -15,6 +15,10 @@ describe('register', () => {
     expect(isRegistered('ruby')).toBe(true)
   })
 
+  it('reports php as registered when @ast-grep/lang-php is available', () => {
+    expect(isRegistered('php')).toBe(true)
+  })
+
   it('reports false for a language that has no peer-dep declared', () => {
     expect(isRegistered('cobol')).toBe(false)
   })

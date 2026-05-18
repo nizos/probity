@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { countNewTestNodes } from './count-new-test-nodes.js'
 import { csharp } from './languages/csharp.js'
 import { javascript } from './languages/javascript.js'
+import { php } from './languages/php.js'
 import { python } from './languages/python.js'
 import { ruby } from './languages/ruby.js'
 import { typescript } from './languages/typescript.js'
@@ -292,5 +293,77 @@ describe('countNewTestNodes (ruby)', () => {
     const after = `describe 'Calc' do\nend\n`
 
     expect(countNewTestNodes(before, after, ruby)).toBe(0)
+  })
+})
+
+describe('countNewTestNodes (php)', () => {
+  it('counts a public function test_*() method (PHPUnit prefix) as a new test node', () => {
+    const before = `<?php\nclass CalcTest {}\n`
+    const after = `<?php\nclass CalcTest {\n  public function test_addition() {}\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(1)
+  })
+
+  it('counts a public function testFoo() camelCase method as a new test node', () => {
+    const before = `<?php\nclass CalcTest {}\n`
+    const after = `<?php\nclass CalcTest {\n  public function testAddition() {}\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(1)
+  })
+
+  it('counts a method with the #[Test] PHP 8 attribute as a new test node', () => {
+    const before = `<?php\nclass CalcTest {}\n`
+    const after = `<?php\nclass CalcTest {\n  #[Test]\n  public function it_adds() {}\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(1)
+  })
+
+  it('counts a method with the @test PHPDoc annotation as a new test node', () => {
+    const before = `<?php\nclass CalcTest {}\n`
+    const after = `<?php\nclass CalcTest {\n  /** @test */\n  public function it_adds() {}\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(1)
+  })
+
+  it('returns 0 when an existing test method is renamed but no test is added', () => {
+    const before = `<?php\nclass CalcTest {\n  public function test_adds() {}\n}\n`
+    const after = `<?php\nclass CalcTest {\n  public function test_adds_two_numbers() {}\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(0)
+  })
+
+  it('returns 2 when two test methods are added in a single change', () => {
+    const before = `<?php\nclass CalcTest {}\n`
+    const after = `<?php\nclass CalcTest {\n  public function test_adds() {}\n  public function test_subtracts() {}\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(2)
+  })
+
+  it('counts a method with both #[Test] and a test_ prefix only once', () => {
+    const before = `<?php\nclass CalcTest {}\n`
+    const after = `<?php\nclass CalcTest {\n  #[Test]\n  public function test_dual() {}\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(1)
+  })
+
+  it('does not count an empty class with no test methods as a test node', () => {
+    const before = ``
+    const after = `<?php\nclass CalcTest {}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(0)
+  })
+
+  it('does not count a #[DataProvider] attribute as a test node', () => {
+    const before = `<?php\nclass CalcTest {}\n`
+    const after = `<?php\nclass CalcTest {\n  #[DataProvider('cases')]\n  public function provideCases(): array { return []; }\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(0)
+  })
+
+  it('does not count a @testWith PHPDoc as a test node by itself', () => {
+    const before = `<?php\nclass CalcTest {}\n`
+    const after = `<?php\nclass CalcTest {\n  /** @testWith [1, 2] */\n  public function provideCases() {}\n}\n`
+
+    expect(countNewTestNodes(before, after, php)).toBe(0)
   })
 })

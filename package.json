@@ -70,6 +70,7 @@
   },
   "devDependencies": {
     "@ast-grep/lang-csharp": "^0.0.6",
+    "@ast-grep/lang-php": "^0.0.7",
     "@ast-grep/lang-python": "^0.0.6",
     "@ast-grep/lang-ruby": "^0.0.7",
     "@commitlint/cli": "^20.5.0",
@@ -91,11 +92,15 @@
   },
   "peerDependencies": {
     "@ast-grep/lang-csharp": "*",
+    "@ast-grep/lang-php": "*",
     "@ast-grep/lang-python": "*",
     "@ast-grep/lang-ruby": "*"
   },
   "peerDependenciesMeta": {
     "@ast-grep/lang-csharp": {
+      "optional": true
+    },
+    "@ast-grep/lang-php": {
       "optional": true
     },
     "@ast-grep/lang-python": {
