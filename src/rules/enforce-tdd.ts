@@ -24,7 +24,23 @@ You will see three inputs:
    agent is about to write. May be a parenthesized marker (e.g.
    \`(file does not exist)\`) when content cannot be shown.
 3. "Pending action" — what the agent is about to write. Content may be
-   raw file text or a patch/diff in any common format.`
+   raw file text or a patch/diff in any common format.
+
+## Multi-step changes
+
+A phase may span multiple writes. For example:
+
+  - Add an import in one write, then change the calling code in the
+    next.
+  - Move a function in two writes (remove from one location, add at
+    another).
+  - Add a function signature in one write, then its body in the next.
+
+Judge each write by whether its content violates TDD. A transient
+file state, such as an unresolved symbol, a duplicated declaration,
+or an unused import, is not itself a violation; this allowance covers
+structural incompleteness only. The cycle's invariants are checked
+when the agent next runs the tests.`
 
 const DEFAULT_TDD_RULES = `## TDD rules
 

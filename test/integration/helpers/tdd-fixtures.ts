@@ -79,6 +79,19 @@ export const MODULO_STUB_IMPL = `export function modulo(a: number, b: number): n
 `
 
 /**
+ * Pending state for the first write of a multi-step change: identical
+ * to {@link MINIMAL_IMPL} plus a new import that no callsite uses
+ * yet. The unused import is a transient structural state; a follow-up
+ * write will introduce the call.
+ */
+export const MINIMAL_IMPL_PLUS_UNUSED_IMPORT = `import { multiply } from './helpers.js'
+
+export function add(a: number, b: number): number {
+  return a + b
+}
+`
+
+/**
  * "Looks like a test file" heuristic. Used by setups to place the
  * pending write under target.test.ts vs target.ts so the rule's
  * "is this a test or impl?" classifier sees the expected name.

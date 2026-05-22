@@ -9,6 +9,7 @@ import { createSandbox } from './helpers/sandbox.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
+  MINIMAL_IMPL_PLUS_UNUSED_IMPORT,
   MODULO_STUB_IMPL,
   OVER_IMPL,
   PLUS_ONE_TEST,
@@ -73,6 +74,17 @@ describe.skipIf(!runAi)(
       const result = await runScenario({
         transcript: 'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
         pendingContent: MODULO_STUB_IMPL,
+      })
+
+      expectDecision(result, 'allow')
+    })
+
+    it('allows the first write of a multi-step change', async () => {
+      // adds an import; the follow-up write will call into it
+      const result = await runScenario({
+        transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
+        beforeFile: MINIMAL_IMPL,
+        pendingContent: MINIMAL_IMPL_PLUS_UNUSED_IMPORT,
       })
 
       expectDecision(result, 'allow')

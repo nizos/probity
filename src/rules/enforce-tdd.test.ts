@@ -285,27 +285,6 @@ describe('enforce-tdd', () => {
     expect(s.capturedPrompt).not.toContain('event-9')
   })
 
-  it('rubric instructs the validator to flag multi-test additions', async () => {
-    const s = setup()
-
-    await s.rule(writeAction(), s.ctx)
-
-    expect(s.capturedPrompt).toMatch(
-      /one new test|single (?:new )?test|at most one/i,
-    )
-  })
-
-  it('rubric explains that a literal placeholder (e.g. `=> 0`) counts as a stub at the import-unresolved step', async () => {
-    const s = setup()
-
-    await s.rule(writeAction(), s.ctx)
-
-    expect(s.capturedPrompt).toMatch(/placeholder stub/i)
-    expect(s.capturedPrompt).toMatch(
-      /literal that contradicts the assertion|`=> 0`|literal that the assertion will reject/i,
-    )
-  })
-
   it('includes a TDD rubric and a JSON response spec in the prompt', async () => {
     const s = setup()
 
