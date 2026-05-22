@@ -80,32 +80,9 @@ Codex's matcher is a regex. `^(Bash|apply_patch|Edit|Write)$` covers shell comma
 
 Further reading: [Codex's hooks documentation](https://developers.openai.com/codex/hooks).
 
-## GitHub Copilot Chat
-
-The Copilot Chat extension (VS Code) reads hooks from `.github/hooks/probity.json` in your project root — the same location the CLI uses. Create the file with:
-
-```json
-{
-  "version": 1,
-  "hooks": {
-    "preToolUse": [
-      {
-        "type": "command",
-        "bash": "npx @nizos/probity --agent github-copilot-chat",
-        "powershell": "npx @nizos/probity --agent github-copilot-chat"
-      }
-    ]
-  }
-}
-```
-
-Note the use of `bash` and `powershell` in this example, select the shell option available for your environment.
-
-Every tool call fires the hook; probity's rules pass through non-write actions. The Chat adapter accepts `run_in_terminal`, `create_file`, and `replace_string_in_file` payloads.
-
 ## GitHub Copilot CLI
 
-GitHub Copilot CLI reads hooks from the same `.github/hooks/probity.json` — the cloud agent also reads it from your repo's default branch. The shape is identical to Chat; only the `--agent` value changes:
+GitHub Copilot CLI reads hooks from `.github/hooks/probity.json` in your project root. The cloud agent also reads it from your repo's default branch.
 
 ```json
 {
@@ -140,7 +117,7 @@ The bin reads a hook payload from stdin (capped at 10 MiB) and writes the vendor
 
 ### Options
 
-- `--agent <vendor>` — Required. One of `claude-code`, `codex`, `github-copilot`, or `github-copilot-chat`.
+- `--agent <vendor>` — Required. One of `claude-code`, `codex`, or `github-copilot`.
 - `--config <path>` — Override the auto-discovered config file. See [Configuration](configuration.md#overriding-the-file-location).
 - `--debug <path>` — Log each invocation's payload and response to `<path>` as JSONL for debugging.
 - `--version` — Print the package version.

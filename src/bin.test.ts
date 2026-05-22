@@ -60,6 +60,12 @@ describe('bin main', () => {
     expect(result.stdout).toMatch(/--config/)
   })
 
+  it('omits github-copilot-chat from the --help vendor list (not officially supported yet)', async () => {
+    const result = await setup({ argv: ['node', 'bin.js', '--help'] })
+
+    expect(result.stdout).not.toContain('github-copilot-chat')
+  })
+
   it('prints the package version to stdout and exits 0 with --version', async () => {
     const result = await setup({ argv: ['node', 'bin.js', '--version'] })
 

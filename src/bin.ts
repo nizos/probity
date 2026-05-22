@@ -25,6 +25,8 @@ const PACKAGE_JSON = JSON.parse(
 
 const VERSION = PACKAGE_JSON.version
 
+const HIDDEN_VENDORS: readonly string[] = ['github-copilot-chat']
+
 const HELP = `probity ${VERSION}
 ${PACKAGE_JSON.description ?? 'Process discipline for coding agents.'}
 
@@ -36,7 +38,7 @@ configured in probity.config.ts, and writes the vendor's response
 format to stdout.
 
 Vendors:
-  ${Object.keys(vendors).join(', ')}
+  ${showSupportedVendors()}
 
 Options:
   --agent <vendor>  Required. The host coding agent.
@@ -165,6 +167,12 @@ function isInvokedAsScript(): boolean {
   } catch {
     return false
   }
+}
+
+function showSupportedVendors(): string {
+  return Object.keys(vendors)
+    .filter((name) => !HIDDEN_VENDORS.includes(name))
+    .join(', ')
 }
 
 if (isInvokedAsScript()) {

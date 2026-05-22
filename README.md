@@ -12,7 +12,7 @@ Probity blocks AI coding agents from breaking your rules — adding production c
   <img src="docs/assets/probity-tdd-demo.gif" alt="Probity blocking an over-implementation attempt" width="1200">
 </p>
 
-Probity is the successor to [TDD Guard](https://github.com/nizos/tdd-guard) (~2k stars, ~180k downloads), now with one config across Claude Code, Codex, GitHub Copilot Chat, and GitHub Copilot CLI.
+Probity is the successor to [TDD Guard](https://github.com/nizos/tdd-guard) (~2k stars, ~200k downloads), now with one config across Claude Code, Codex, and GitHub Copilot CLI.
 
 ## How it works
 
@@ -80,7 +80,7 @@ Custom rules are a few lines of TypeScript. File scoping uses ESLint-style globs
 ## FAQ
 
 **Does it work with my agent?**
-Probity currently works with Claude Code, Codex, GitHub Copilot Chat, and GitHub Copilot CLI, with more coming.
+Probity currently works with Claude Code, Codex, and GitHub Copilot CLI, with more coming.
 
 **Does it work with my language?**
 Probity reads each agent's session transcript directly, so there are no per-framework reporters to install. It works with any language and test runner that your agent can work with.
