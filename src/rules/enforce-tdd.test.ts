@@ -30,7 +30,7 @@ describe('enforce-tdd', () => {
 
     const result = await rule(writeAction(), ctx)
 
-    expect(result).toEqual({ kind: 'pass' })
+    expect(result).toMatchObject({ kind: 'pass' })
   })
 
   it('blocks loud when ctx.agent is missing (fail-closed: silently passing would mean the user thinks TDD is enforced and gets nothing)', async () => {
@@ -309,8 +309,44 @@ describe('enforce-tdd', () => {
       s.ctx,
     )
 
-    expect(result).toEqual({ kind: 'pass' })
+    expect(result).toMatchObject({ kind: 'pass' })
     expect(s.agentCalled).toBe(false)
+  })
+
+  it('emits a fast-path note when the fast-path fires', async () => {
+    const s = setup()
+
+    const result = await s.rule(
+      writeAction(
+        'src/foo.test.ts',
+        `describe('x', () => { it('a', () => {}) })`,
+      ),
+      s.ctx,
+    )
+
+    expect(result).toEqual({
+      kind: 'pass',
+      notes: [{ kind: 'fast-path' }],
+    })
+  })
+
+  it('preserves the validator verdict reason on the pass result', async () => {
+    const s = setup({
+      verdict: { kind: 'pass', reason: 'looks like a refactor' },
+    })
+
+    const result = await s.rule(
+      writeAction(
+        'src/calc.ts',
+        'export const add = (a: number, b: number) => a + b',
+      ),
+      s.ctx,
+    )
+
+    expect(result).toMatchObject({
+      kind: 'pass',
+      reason: 'looks like a refactor',
+    })
   })
 
   it('does not fast-path when two new tests are added in one write', async () => {

@@ -1,11 +1,17 @@
 /**
  * The outcome of a rule evaluating an action.
  *
- * - `pass` — no violation; the rule has no objection.
+ * - `pass` — no violation; the rule has no objection. Optional `notes`
+ *   carry structured context (e.g. a fast-path signal) for the
+ *   operator trace; the host agent never sees them.
  * - `violation` — the rule objects; `reason` is surfaced to the agent.
  */
 export type RuleResult =
-  | { kind: 'pass' }
+  | {
+      kind: 'pass'
+      reason?: string
+      notes?: readonly { kind: string }[]
+    }
   | { kind: 'violation'; reason: string }
 
 /**

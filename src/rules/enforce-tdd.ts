@@ -231,7 +231,7 @@ export function enforceTdd(
       kind: 'unknown',
     }
     if (fastPath && isSingleNewTest(action, before)) {
-      return { kind: 'pass' }
+      return { kind: 'pass', notes: [{ kind: 'fast-path' }] }
     }
     return validateWithAi(action, ctx, before, rules, window)
   }
@@ -273,5 +273,5 @@ async function validateWithAi(
   if (verdict.kind === 'violation') {
     return { kind: 'violation', reason: verdict.reason }
   }
-  return { kind: 'pass' }
+  return { kind: 'pass', reason: verdict.reason }
 }
