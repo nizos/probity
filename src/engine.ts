@@ -1,5 +1,5 @@
 import type { RuleEntry } from './config.js'
-import type { Action, Decision } from './types.js'
+import type { Action, Decision, Outcome, TraceEntry } from './types.js'
 import type { Rule, RuleContext } from './rules/contract.js'
 import { actionMatchesFilesScope } from './rules/utils/match-paths.js'
 
@@ -16,31 +16,60 @@ export type EvaluateHooks = {
 }
 
 /**
- * Run rules against an action, returning the first violation as a block
- * decision or allow if none object. Fail-closed: a rule that throws
- * becomes a block decision with the error message rather than escaping
- * as an unhandled rejection. Entries may be flat rules or
- * `{ files, rules }` blocks; blocks whose `files` glob doesn't match
- * the action's path are skipped.
+ * Run rules against an action and return the engine's Outcome. The
+ * violator's trace entry is pushed before the engine short-circuits,
+ * so the trace ends with the rule that caused the block. Fail-closed:
+ * a thrown rule becomes a block decision rather than an unhandled
+ * rejection.
  */
 export async function evaluate(
   action: Action,
   entries: readonly RuleEntry[],
   ctx?: RuleContext,
-): Promise<Decision> {
-  try {
-    for (const entry of entries) {
-      for (const rule of resolveRules(entry, action)) {
-        const result = await rule(action, ctx)
-        if (result.kind === 'violation') {
-          return { kind: 'block', reason: result.reason }
-        }
-      }
+  hooks?: EvaluateHooks,
+): Promise<Outcome> {
+  const trace: TraceEntry[] = []
+  for (const entry of entries) {
+    for (const rule of resolveRules(entry, action)) {
+      const step = await runRule(rule, action, ctx, hooks)
+      trace.push(step.traceEntry)
+      if (step.decision) return { decision: step.decision, trace }
     }
-    return { kind: 'allow' }
+  }
+  return { decision: { kind: 'allow' }, trace }
+}
+
+async function runRule(
+  rule: Rule,
+  action: Action,
+  ctx: RuleContext | undefined,
+  hooks: EvaluateHooks | undefined,
+): Promise<{ traceEntry: TraceEntry; decision?: Decision }> {
+  const ruleName = rule.name || '(unnamed)'
+  hooks?.onRuleStart?.(ruleName)
+  const start = performance.now()
+  try {
+    const result = await rule(action, ctx)
+    const durationMs = performance.now() - start
+    const traceEntry: TraceEntry = {
+      kind: 'rule-evaluated',
+      rule: ruleName,
+      result,
+      durationMs,
+    }
+    if (result.kind === 'violation') {
+      return { traceEntry, decision: { kind: 'block', reason: result.reason } }
+    }
+    return { traceEntry }
   } catch (error) {
+    const durationMs = performance.now() - start
     const reason = error instanceof Error ? error.message : String(error)
-    return { kind: 'block', reason: `rule error: ${reason}` }
+    return {
+      traceEntry: { kind: 'rule-threw', rule: ruleName, reason, durationMs },
+      decision: { kind: 'block', reason: `rule error: ${reason}` },
+    }
+  } finally {
+    hooks?.onRuleEnd?.(ruleName)
   }
 }
 

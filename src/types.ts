@@ -33,6 +33,15 @@ export type Action =
 export type Decision = { kind: 'allow' } | { kind: 'block'; reason: string }
 
 /**
+ * The engine's full output: the Decision sent over the wire plus a
+ * structured trace of how the decision was reached.
+ */
+export type Outcome = {
+  decision: Decision
+  trace: readonly TraceEntry[]
+}
+
+/**
  * An entry in the engine's trace.
  *
  * - `rule-evaluated` — a rule ran and returned a result; the entry is

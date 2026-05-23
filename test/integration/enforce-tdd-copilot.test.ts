@@ -93,7 +93,7 @@ async function runScenario(opts: {
     opts.beforeFile !== undefined ? { [filename]: opts.beforeFile } : {},
   )
   const filePath = fileSandbox.getPath(filename)
-  const response = await run(
+  const { response } = await run(
     buildPayload({ filePath, content: opts.pendingContent }),
     {
       vendor: 'github-copilot',

@@ -103,7 +103,7 @@ async function runScenario(opts: {
     opts.beforeFile !== undefined ? { [filename]: opts.beforeFile } : {},
   )
   const filePath = sandbox.getPath(filename)
-  const response = await run(
+  const { response } = await run(
     buildPayload({
       transcript: opts.transcript,
       filePath,

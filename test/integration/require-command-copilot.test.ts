@@ -37,7 +37,7 @@ describe('require-command + github-copilot', () => {
     })
     useCopilotHome(homeSandbox.path)
 
-    const response = await run(
+    const { response } = await run(
       buildBashPayload({ command: 'git commit -m "wip"' }),
       {
         vendor: 'github-copilot',
@@ -54,7 +54,7 @@ describe('require-command + github-copilot', () => {
     })
     useCopilotHome(homeSandbox.path)
 
-    const response = await run(
+    const { response } = await run(
       buildBashPayload({ command: 'git commit -m "wip"' }),
       {
         vendor: 'github-copilot',

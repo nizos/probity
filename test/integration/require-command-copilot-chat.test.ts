@@ -33,7 +33,7 @@ describe('require-command + github-copilot-chat', () => {
       [TRANSCRIPT_FILENAME]: TRANSCRIPT_EDIT_AFTER_LINT,
     })
 
-    const response = await run(
+    const { response } = await run(
       buildBashPayload({
         command: 'git commit -m "wip"',
         transcriptPath: sandbox.getPath(TRANSCRIPT_FILENAME),
@@ -52,7 +52,7 @@ describe('require-command + github-copilot-chat', () => {
       [TRANSCRIPT_FILENAME]: TRANSCRIPT_LINT_ONLY,
     })
 
-    const response = await run(
+    const { response } = await run(
       buildBashPayload({
         command: 'git commit -m "wip"',
         transcriptPath: sandbox.getPath(TRANSCRIPT_FILENAME),

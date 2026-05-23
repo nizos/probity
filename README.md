@@ -19,7 +19,7 @@ Probity is the successor to [TDD Guard](https://github.com/nizos/tdd-guard) (~2k
 Each agent action (file write, shell command) fires a hook. Probity evaluates the action and either lets it through or sends back a reason and a path forward:
 
 ```
-probity: you're adding production code before a failing test has been
+Probity: you're adding production code before a failing test has been
 observed.
 
 The next TDD-legal step is to add one focused test in src/cart.test.ts

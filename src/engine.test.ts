@@ -4,10 +4,37 @@ import { evaluate } from './engine.js'
 import type { Rule } from './rules/contract.js'
 
 describe('engine', () => {
+  it('records a rule-evaluated entry for each rule that ran, including the violator', async () => {
+    const pass: Rule = () => ({ kind: 'pass' as const })
+    const violate: Rule = () => ({
+      kind: 'violation' as const,
+      reason: 'no',
+    })
+    const unreached: Rule = () => ({ kind: 'pass' as const })
+
+    const outcome = await evaluate({ kind: 'command', command: 'x' }, [
+      pass,
+      violate,
+      unreached,
+    ])
+
+    expect(outcome.trace).toHaveLength(2)
+    expect(outcome.trace[0]).toMatchObject({
+      kind: 'rule-evaluated',
+      rule: 'pass',
+      result: { kind: 'pass' },
+    })
+    expect(outcome.trace[1]).toMatchObject({
+      kind: 'rule-evaluated',
+      rule: 'violate',
+      result: { kind: 'violation', reason: 'no' },
+    })
+  })
+
   it('returns allow when every rule passes', async () => {
     const alwaysPass: Rule = () => ({ kind: 'pass' as const })
 
-    const decision = await evaluate({ kind: 'command', command: 'x' }, [
+    const { decision } = await evaluate({ kind: 'command', command: 'x' }, [
       alwaysPass,
     ])
 
@@ -20,7 +47,7 @@ describe('engine', () => {
       reason: 'nope',
     })
 
-    const decision = await evaluate({ kind: 'command', command: 'x' }, [
+    const { decision } = await evaluate({ kind: 'command', command: 'x' }, [
       alwaysViolate,
     ])
 
@@ -30,7 +57,7 @@ describe('engine', () => {
   it('awaits async rules and returns an allow decision when they pass', async () => {
     const asyncPass: Rule = () => Promise.resolve({ kind: 'pass' as const })
 
-    const decision = await evaluate({ kind: 'command', command: 'x' }, [
+    const { decision } = await evaluate({ kind: 'command', command: 'x' }, [
       asyncPass,
     ])
 
@@ -53,7 +80,7 @@ describe('engine', () => {
   it('applies the rules in a rule block', async () => {
     const violate: Rule = () => ({ kind: 'violation' as const, reason: 'no' })
 
-    const decision = await evaluate({ kind: 'command', command: 'x' }, [
+    const { decision } = await evaluate({ kind: 'command', command: 'x' }, [
       { rules: [violate] },
     ])
 
@@ -63,7 +90,7 @@ describe('engine', () => {
   it('skips a rule block when the write path does not match files', async () => {
     const violate: Rule = () => ({ kind: 'violation' as const, reason: 'no' })
 
-    const decision = await evaluate(
+    const { decision } = await evaluate(
       { kind: 'write', path: 'README.md', content: '' },
       [{ files: ['src/**'], rules: [violate] }],
     )
@@ -74,9 +101,10 @@ describe('engine', () => {
   it('applies a rule block with files to a command action (files only filters writes)', async () => {
     const violate: Rule = () => ({ kind: 'violation' as const, reason: 'no' })
 
-    const decision = await evaluate({ kind: 'command', command: 'rm -rf /' }, [
-      { files: ['src/**'], rules: [violate] },
-    ])
+    const { decision } = await evaluate(
+      { kind: 'command', command: 'rm -rf /' },
+      [{ files: ['src/**'], rules: [violate] }],
+    )
 
     expect(decision).toEqual({ kind: 'block', reason: 'no' })
   })
@@ -90,7 +118,7 @@ describe('engine', () => {
       throw new Error('block should never run')
     }
 
-    const decision = await evaluate(
+    const { decision } = await evaluate(
       { kind: 'write', path: 'src/foo.ts', content: '' },
       [
         { files: ['lib/**'], rules: [unreached] },
@@ -105,9 +133,10 @@ describe('engine', () => {
   it('runtime-defends against an empty files array on command actions', async () => {
     const violate: Rule = () => ({ kind: 'violation' as const, reason: 'no' })
 
-    const decision = await evaluate({ kind: 'command', command: 'rm -rf /' }, [
-      { files: [] as unknown as readonly [string], rules: [violate] },
-    ])
+    const { decision } = await evaluate(
+      { kind: 'command', command: 'rm -rf /' },
+      [{ files: [] as unknown as readonly [string], rules: [violate] }],
+    )
 
     expect(decision).toEqual({ kind: 'allow' })
   })
@@ -117,7 +146,7 @@ describe('engine', () => {
       throw new Error('kaboom')
     }
 
-    const decision = await evaluate({ kind: 'command', command: 'x' }, [
+    const { decision } = await evaluate({ kind: 'command', command: 'x' }, [
       crashing,
     ])
 
@@ -125,5 +154,85 @@ describe('engine', () => {
       kind: 'block',
       reason: 'rule error: kaboom',
     })
+  })
+
+  it('records a rule-threw entry attributing the throwing rule', async () => {
+    const crashing: Rule = () => {
+      throw new Error('kaboom')
+    }
+
+    const outcome = await evaluate({ kind: 'command', command: 'x' }, [
+      crashing,
+    ])
+
+    expect(outcome.trace[0]).toMatchObject({
+      kind: 'rule-threw',
+      rule: 'crashing',
+      reason: 'kaboom',
+    })
+  })
+
+  it('records the durationMs of each rule-threw entry as a non-negative number', async () => {
+    const crashing: Rule = () => {
+      throw new Error('kaboom')
+    }
+
+    const outcome = await evaluate({ kind: 'command', command: 'x' }, [
+      crashing,
+    ])
+    const first = outcome.trace[0]
+
+    if (first?.kind !== 'rule-threw') {
+      expect.fail(`expected rule-threw; got ${first?.kind ?? 'no entry'}`)
+    }
+    expect(first.durationMs).toBeGreaterThanOrEqual(0)
+    expect(Number.isFinite(first.durationMs)).toBe(true)
+  })
+
+  it('records the durationMs of each rule-evaluated entry as a non-negative number', async () => {
+    const pass: Rule = () => ({ kind: 'pass' as const })
+
+    const outcome = await evaluate({ kind: 'command', command: 'x' }, [pass])
+    const first = outcome.trace[0]
+
+    if (first?.kind !== 'rule-evaluated') {
+      expect.fail(`expected rule-evaluated; got ${first?.kind ?? 'no entry'}`)
+    }
+    expect(first.durationMs).toBeGreaterThanOrEqual(0)
+    expect(Number.isFinite(first.durationMs)).toBe(true)
+  })
+
+  it('attributes a rule with no inferable name as "(unnamed)" in the trace', async () => {
+    const outcome = await evaluate({ kind: 'command', command: 'x' }, [
+      () => ({ kind: 'pass' as const }),
+    ])
+
+    expect(outcome.trace[0]).toMatchObject({
+      kind: 'rule-evaluated',
+      rule: '(unnamed)',
+    })
+  })
+
+  it('emits onRuleStart and onRuleEnd around each rule run, in order', async () => {
+    const pass: Rule = () => ({ kind: 'pass' as const })
+    const violate: Rule = () => ({ kind: 'violation' as const, reason: 'no' })
+    const events: string[] = []
+
+    await evaluate(
+      { kind: 'command', command: 'x' },
+      [pass, violate],
+      undefined,
+      {
+        onRuleStart: (name) => events.push(`start ${name}`),
+        onRuleEnd: (name) => events.push(`end ${name}`),
+      },
+    )
+
+    expect(events).toEqual([
+      'start pass',
+      'end pass',
+      'start violate',
+      'end violate',
+    ])
   })
 })

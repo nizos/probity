@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, it, expect } from 'vitest'
 
-import { run } from './cli.js'
+import { failClosedResponse, run, type RunResult, type Vendor } from './cli.js'
 import type { Config } from './config.js'
 import type { Agent, SessionEvent } from './types.js'
 import { enforceFilenameCasing } from './rules/enforce-filename-casing.js'
@@ -16,50 +16,72 @@ const stubAgent: Agent = {
 
 describe('cli', () => {
   it('denies a write whose filename violates kebab-case', async () => {
-    const { raw } = await setup('write-new-file.json')
-    const response = parseAs<ClaudeCodeResponse>(raw)
+    const { response } = await setup({ fixture: 'write-new-file.json' })
+    const parsed = parseAs<ClaudeCodeResponse>(response)
 
-    expect(response.hookSpecificOutput.permissionDecision).toBe('deny')
+    expect(parsed.hookSpecificOutput.permissionDecision).toBe('deny')
+  })
+
+  it('surfaces the engine trace alongside the response', async () => {
+    const { response, trace } = await setup({
+      fixture: 'write-kebab-case.json',
+    })
+
+    expect(response).toBe('')
+    expect(trace).toHaveLength(1)
+    expect(trace[0]).toMatchObject({
+      kind: 'rule-evaluated',
+      result: { kind: 'pass' },
+    })
+  })
+
+  it('brands deny reasons with the Probity: prefix', async () => {
+    const { response } = await setup({ fixture: 'write-new-file.json' })
+    const parsed = parseAs<ClaudeCodeResponse>(response)
+
+    expect(parsed.hookSpecificOutput.permissionDecisionReason).toMatch(
+      /^Probity: /,
+    )
+  })
+
+  it('produces a branded vendor block response from an error via failClosedResponse', () => {
+    const response = failClosedResponse('claude-code', new Error('boom'))
+    const parsed = parseAs<ClaudeCodeResponse>(response)
+
+    expect(parsed.hookSpecificOutput.permissionDecision).toBe('deny')
+    expect(parsed.hookSpecificOutput.permissionDecisionReason).toBe(
+      'Probity: boom',
+    )
   })
 
   it('returns no opinion (empty stdout) for a write that passes every rule', async () => {
-    const { raw } = await setup('write-kebab-case.json')
+    const { response } = await setup({ fixture: 'write-kebab-case.json' })
 
-    expect(raw).toBe('')
+    expect(response).toBe('')
   })
 
   it('produces an empty allow response for a codex Bash payload that passes rules', async () => {
-    const payload = readFileSync(
-      'test/fixtures/codex/pre-bash-pwd.json',
-      'utf8',
-    )
-
-    const response = await run(payload, {
+    const { response } = await setup({
       vendor: 'codex',
-      loadConfig: () => Promise.resolve(defaultTestConfig),
+      fixture: 'pre-bash-pwd.json',
     })
 
     expect(response).toBe('')
   })
 
   it('produces an empty allow response for a github-copilot bash payload that passes rules', async () => {
-    const payload = readFileSync(
-      'test/fixtures/github-copilot/pre-bash-npm-test.json',
-      'utf8',
-    )
-
-    const response = await run(payload, {
+    const { response } = await setup({
       vendor: 'github-copilot',
-      loadConfig: () => Promise.resolve(defaultTestConfig),
+      fixture: 'pre-bash-npm-test.json',
     })
 
     expect(response).toBe('')
   })
 
   it('returns a deny response when the payload is not valid JSON', async () => {
-    const response = await run('not json at all', {
-      vendor: 'claude-code',
-      loadConfig: () => Promise.resolve({ rules: [], ai: stubAgent }),
+    const { response } = await setup({
+      payload: 'not json at all',
+      config: { rules: [], ai: stubAgent },
     })
     const parsed = parseAs<ClaudeCodeResponse>(response)
 
@@ -69,11 +91,21 @@ describe('cli', () => {
     )
   })
 
+  it('emits a parse-failed trace entry naming the rejection reason', async () => {
+    const { trace } = await setup({
+      payload: 'not json at all',
+      config: { rules: [], ai: stubAgent },
+    })
+
+    expect(trace).toHaveLength(1)
+    const first = trace[0]
+    if (first?.kind !== 'parse-failed') {
+      expect.fail(`expected parse-failed; got ${first?.kind ?? 'no entry'}`)
+    }
+    expect(first.reason).toMatch(/json|parse/i)
+  })
+
   it('honors an injected config loader instead of discovering one on disk', async () => {
-    const payload = readFileSync(
-      'test/fixtures/claude-code/write-kebab-case.json',
-      'utf8',
-    )
     const injectedConfig: Config = {
       rules: [
         {
@@ -84,12 +116,12 @@ describe('cli', () => {
       ai: stubAgent,
     }
 
-    const raw = await run(payload, {
-      vendor: 'claude-code',
-      loadConfig: () => Promise.resolve(injectedConfig),
+    const { response } = await setup({
+      fixture: 'write-kebab-case.json',
+      config: injectedConfig,
     })
 
-    expect(raw).toBe('')
+    expect(response).toBe('')
   })
 
   it('threads canonical session events into ctx.history when a transcript is available', async () => {
@@ -108,10 +140,9 @@ describe('cli', () => {
       tool_use_id: 'tu_x',
     })
 
-    await run(payload, {
-      vendor: 'claude-code',
-      loadConfig: () =>
-        Promise.resolve({ rules: [captureRule], ai: stubAgent }),
+    await setup({
+      payload,
+      config: { rules: [captureRule], ai: stubAgent },
     })
 
     expect(captured).toBeDefined()
@@ -126,27 +157,48 @@ describe('cli', () => {
       )
       return { kind: 'pass' }
     }
-    const payload = readFileSync(
-      'test/fixtures/claude-code/write-kebab-case.json',
-      'utf8',
-    )
 
-    await run(payload, {
-      vendor: 'claude-code',
-      loadConfig: () =>
-        Promise.resolve({ rules: [captureRule], ai: stubAgent }),
+    await setup({
+      fixture: 'write-kebab-case.json',
+      config: { rules: [captureRule], ai: stubAgent },
     })
 
     expect(captured).toBeDefined()
     expect(captured?.kind).toBe('present')
   })
 
+  it('captures agent calls a rule makes onto the trace entry as agentCalls with the full Verdict embedded', async () => {
+    const meta = { model: 'test-model', inputTokens: 100, outputTokens: 20 }
+    const meteringAgent: Agent = {
+      reason: () => Promise.resolve({ kind: 'pass', reason: 'ok', meta }),
+    }
+    const aiRule: Rule = async (_action, ctx) => {
+      await ctx?.agent?.reason('hi')
+      return { kind: 'pass' }
+    }
+
+    const { trace } = await setup({
+      fixture: 'write-kebab-case.json',
+      config: { rules: [aiRule], ai: meteringAgent },
+    })
+
+    expect(trace).toHaveLength(1)
+    const first = trace[0]
+    if (first?.kind !== 'rule-evaluated') {
+      expect.fail(`expected rule-evaluated; got ${first?.kind ?? 'no entry'}`)
+    }
+    expect(first.agentCalls).toHaveLength(1)
+    const call = first.agentCalls?.[0]
+    expect(call?.durationMs).toBeGreaterThanOrEqual(0)
+    expect(call?.verdict).toEqual({ kind: 'pass', reason: 'ok', meta })
+  })
+
   it('returns a deny response when the adapter rejects the payload', async () => {
     const payload = JSON.stringify({ tool_name: 'Bash', tool_input: {} })
 
-    const response = await run(payload, {
-      vendor: 'claude-code',
-      loadConfig: () => Promise.resolve({ rules: [], ai: stubAgent }),
+    const { response } = await setup({
+      payload,
+      config: { rules: [], ai: stubAgent },
     })
     const parsed = parseAs<ClaudeCodeResponse>(response)
 
@@ -167,14 +219,22 @@ const defaultTestConfig: Config = {
   ai: stubAgent,
 }
 
-async function setup(fixtureName: string, config: Config = defaultTestConfig) {
-  const payload = readFileSync(
-    `test/fixtures/claude-code/${fixtureName}`,
-    'utf8',
-  )
-  const raw = await run(payload, {
-    vendor: 'claude-code',
-    loadConfig: () => Promise.resolve(config),
+async function setup(
+  opts: {
+    vendor?: Vendor
+    fixture?: string
+    payload?: string
+    config?: Config
+  } = {},
+): Promise<RunResult> {
+  const vendor = opts.vendor ?? 'claude-code'
+  const payload =
+    opts.payload ??
+    (opts.fixture
+      ? readFileSync(`test/fixtures/${vendor}/${opts.fixture}`, 'utf8')
+      : '')
+  return run(payload, {
+    vendor,
+    loadConfig: () => Promise.resolve(opts.config ?? defaultTestConfig),
   })
-  return { raw }
 }

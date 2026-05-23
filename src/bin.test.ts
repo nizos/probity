@@ -8,7 +8,7 @@ import { describe, it, expect, onTestFinished } from 'vitest'
 import { main, type MainResult } from './bin.js'
 import type { ConfigLoader } from './cli.js'
 import type { Config } from './config.js'
-import type { Agent } from './types.js'
+import type { Agent, TraceEntry } from './types.js'
 import { enforceFilenameCasing } from './rules/enforce-filename-casing.js'
 import { parseAs } from './utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from './vendors/claude-code/adapter.js'
@@ -127,30 +127,31 @@ describe('bin main', () => {
   })
 
   it('appends each invocation to --debug <path> as a JSONL entry with datetime, request, and response', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'probity-debug-'))
-    onTestFinished(() => rm(dir, { recursive: true, force: true }))
-    const logPath = path.join(dir, 'probity.log')
-
-    await setup({
-      argv: ['node', 'bin.js', '--agent', 'claude-code', '--debug', logPath],
+    const { entries } = await setup({
       stdin: KEBAB_PAYLOAD,
       loadConfig: () => Promise.resolve(testConfig),
+      debugLog: 'probity.log',
     })
 
-    const log = await readFile(logPath, 'utf8')
-    const entries = log
-      .trim()
-      .split('\n')
-      .map((line) =>
-        parseAs<{ datetime: string; request: unknown; response: unknown }>(
-          line,
-        ),
-      )
     expect(entries).toHaveLength(1)
     expect(entries[0]?.datetime).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     expect(entries[0]).toMatchObject({
       request: { tool_name: 'Write' },
       response: '',
+    })
+  })
+
+  it('includes the engine trace in each --debug JSONL entry alongside request and response', async () => {
+    const { entries } = await setup({
+      stdin: KEBAB_PAYLOAD,
+      loadConfig: () => Promise.resolve(testConfig),
+      debugLog: 'probity.log',
+    })
+
+    expect(entries[0]?.trace).toHaveLength(1)
+    expect(entries[0]?.trace[0]).toMatchObject({
+      kind: 'rule-evaluated',
+      result: { kind: 'pass' },
     })
   })
 })
@@ -179,11 +180,42 @@ async function setup(
     argv?: readonly string[]
     stdin?: string | (() => string)
     loadConfig?: ConfigLoader
+    debugLog?: string
   } = {},
-): Promise<MainResult> {
-  return main({
-    argv: opts.argv ?? ['node', 'bin.js', '--agent', 'claude-code'],
+) {
+  const baseArgv = opts.argv ?? ['node', 'bin.js', '--agent', 'claude-code']
+  const logPath = opts.debugLog
+    ? await createDebugLogPath(opts.debugLog)
+    : undefined
+  const argv = logPath ? [...baseArgv, '--debug', logPath] : baseArgv
+
+  const result: MainResult = await main({
+    argv,
     stdin: opts.stdin ?? '',
     ...(opts.loadConfig && { loadConfig: opts.loadConfig }),
   })
+
+  const entries = logPath ? await readDebugLog(logPath) : []
+  return { ...result, entries }
+}
+
+async function createDebugLogPath(filename: string) {
+  const dir = await mkdtemp(path.join(tmpdir(), 'probity-debug-'))
+  onTestFinished(() => rm(dir, { recursive: true, force: true }))
+  return path.join(dir, filename)
+}
+
+async function readDebugLog(logPath: string) {
+  const text = await readFile(logPath, 'utf8')
+  return text
+    .trim()
+    .split('\n')
+    .map((line) =>
+      parseAs<{
+        datetime: string
+        request: unknown
+        response: unknown
+        trace: readonly TraceEntry[]
+      }>(line),
+    )
 }

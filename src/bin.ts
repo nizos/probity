@@ -4,9 +4,10 @@ import { appendFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { vendors, type Vendor } from './registry.js'
-import { run, type ConfigLoader } from './cli.js'
+import { type Vendor, vendors } from './registry.js'
+import { failClosedResponse, run, type ConfigLoader } from './cli.js'
 import { loadConfig } from './config.js'
+import type { TraceEntry } from './types.js'
 import { parseArgs, type ParsedArgs } from './utils/parse-args.js'
 import { readCapped } from './utils/read-capped.js'
 
@@ -80,29 +81,34 @@ async function runWithDiagnostics(
   parsed: RunArgs,
   args: MainArgs,
 ): Promise<MainResult> {
-  const { stdin, result } = await runOrFailClosed(parsed, args)
-  await logExchange(parsed.debugLogPath, stdin, result.stdout)
+  const { stdin, result, trace } = await runOrFailClosed(parsed, args)
+  await logExchange(parsed.debugLogPath, stdin, result.stdout, trace)
   return result
 }
 
 /**
- * Returns the stdin alongside the result so the diagnostic logger can
- * see both even when stdin resolution itself was the failure.
+ * Returns the stdin and trace alongside the result so the diagnostic
+ * logger can see all three even when stdin resolution itself was the
+ * failure (in which case trace is empty).
  */
 async function runOrFailClosed(
   parsed: RunArgs,
   args: MainArgs,
-): Promise<{ stdin: string; result: MainResult }> {
+): Promise<{
+  stdin: string
+  result: MainResult
+  trace: readonly TraceEntry[]
+}> {
   try {
     const stdin = resolveStdin(args.stdin)
     const loaderOverride = args.loadConfig ?? loaderFromPath(parsed.configPath)
-    const response = await run(stdin, {
+    const { response, trace } = await run(stdin, {
       vendor: parsed.vendor,
       ...(loaderOverride && { loadConfig: loaderOverride }),
     })
-    return { stdin, result: { stdout: response, exitCode: 0 } }
+    return { stdin, result: { stdout: response, exitCode: 0 }, trace }
   } catch (error) {
-    return { stdin: '', result: failClosed(parsed.vendor, error) }
+    return { stdin: '', result: failClosed(parsed.vendor, error), trace: [] }
   }
 }
 
@@ -116,17 +122,18 @@ function resolveStdin(stdin: string | (() => string)): string {
  */
 function failClosed(vendor: Vendor, error: unknown): MainResult {
   const reason = error instanceof Error ? error.message : String(error)
-  const block = vendors[vendor].adapter.toResponse({
-    kind: 'block',
-    reason: `probity: ${reason}`,
-  })
-  return { stdout: block, stderr: `probity: ${reason}\n`, exitCode: 0 }
+  return {
+    stdout: failClosedResponse(vendor, error),
+    stderr: `Probity: ${reason}\n`,
+    exitCode: 0,
+  }
 }
 
 async function logExchange(
   logPath: string | undefined,
   request: string,
   response: string | undefined,
+  trace: readonly TraceEntry[],
 ): Promise<void> {
   if (!logPath || response === undefined) return
   const entry =
@@ -134,6 +141,7 @@ async function logExchange(
       datetime: new Date().toISOString(),
       request: tryJsonParse(request),
       response: tryJsonParse(response),
+      trace,
     }) + '\n'
   await appendFile(logPath, entry, 'utf8').catch(() => undefined)
 }

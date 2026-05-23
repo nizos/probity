@@ -37,7 +37,7 @@ function requireAgent(argv: readonly string[]): Result<Vendor> {
   if (idx === -1) {
     return {
       kind: 'error',
-      stderr: 'probity: --agent is missing\n',
+      stderr: 'Probity: --agent is missing\n',
       exitCode: 2,
     }
   }
@@ -46,7 +46,7 @@ function requireAgent(argv: readonly string[]): Result<Vendor> {
     const known = Object.keys(vendors).join(', ')
     return {
       kind: 'error',
-      stderr: `probity: --agent ${String(value)} is not a known agent. Expected one of: ${known}\n`,
+      stderr: `Probity: --agent ${String(value)} is not a known agent. Expected one of: ${known}\n`,
       exitCode: 2,
     }
   }
@@ -63,7 +63,7 @@ function pathFlag(
   if (next === undefined || next.startsWith('--')) {
     return {
       kind: 'error',
-      stderr: `probity: ${flag} is missing its path\n`,
+      stderr: `Probity: ${flag} is missing its path\n`,
       exitCode: 2,
     }
   }

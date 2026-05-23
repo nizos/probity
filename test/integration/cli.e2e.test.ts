@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
@@ -88,6 +89,40 @@ export default defineConfig({
     const decoded = decodeResponse('claude-code', result.stdout)
     expect(decoded.decision).toBe('deny')
     expect(decoded.reason).toContain('walk-up discovery fired')
+  })
+
+  it('writes a --debug JSONL entry whose trace includes the rule-evaluated entry the engine produced', async () => {
+    const sandbox = await createSandbox({})
+    const logPath = sandbox.getPath('probity.log')
+
+    await runBin({
+      args: [
+        '--agent',
+        'claude-code',
+        '--config',
+        CONFIG_FIXTURE,
+        '--debug',
+        logPath,
+      ],
+      payload: readFileSync(
+        'test/fixtures/claude-code/write-kebab-case.json',
+        'utf8',
+      ),
+    })
+
+    const log = await readFile(logPath, 'utf8')
+    const entry = JSON.parse(log.trim()) as {
+      datetime: string
+      trace: { kind: string; rule?: string; result?: { kind: string } }[]
+    }
+
+    expect(entry.datetime).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    expect(entry.trace).toHaveLength(1)
+    expect(entry.trace[0]).toMatchObject({
+      kind: 'rule-evaluated',
+      rule: 'enforceFilenameCasing',
+      result: { kind: 'pass' },
+    })
   })
 
   it('matches a config rule scoped at the config root when the session opens in a subdirectory', async () => {
