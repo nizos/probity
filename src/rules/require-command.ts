@@ -57,7 +57,7 @@ type Options = {
  * })
  */
 export function requireCommand(options: Options): Rule {
-  return async (action, ctx) => {
+  return async function requireCommand(action, ctx) {
     if (action.kind !== options.before.kind) return { kind: 'pass' }
     if (!stringOrRegexMatches(action.command, options.before.match)) {
       return { kind: 'pass' }

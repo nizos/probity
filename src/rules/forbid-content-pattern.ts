@@ -32,7 +32,7 @@ export function forbidContentPattern(options: {
   match: string | RegExp
   reason: string
 }): Rule {
-  return (action) => {
+  return function forbidContentPattern(action) {
     if (action.kind !== 'write') return { kind: 'pass' }
     if (!stringOrRegexMatches(action.content, options.match)) {
       return { kind: 'pass' }

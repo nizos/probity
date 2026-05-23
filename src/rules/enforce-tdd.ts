@@ -222,7 +222,10 @@ export function enforceTdd(
     maxContentChars: options.maxContentChars ?? DEFAULT_MAX_CONTENT_CHARS,
   }
   const fastPath = options.fastPath ?? true
-  return async (action: Action, ctx?: RuleContext): Promise<RuleResult> => {
+  return async function enforceTdd(
+    action: Action,
+    ctx?: RuleContext,
+  ): Promise<RuleResult> {
     if (action.kind !== 'write') return { kind: 'pass' }
     const before: FileContent = (await ctx?.readFile?.(action.path)) ?? {
       kind: 'unknown',
