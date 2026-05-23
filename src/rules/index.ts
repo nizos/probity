@@ -1,4 +1,5 @@
-export type { Rule, RuleContext, RuleResult } from './contract.js'
+export type { Rule, RuleContext } from './contract.js'
+export type { RuleResult } from '../types.js'
 export { enforceTdd } from './enforce-tdd.js'
 export { enforceFilenameCasing, type Style } from './enforce-filename-casing.js'
 export { forbidCommandPattern } from './forbid-command-pattern.js'

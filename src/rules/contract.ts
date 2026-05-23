@@ -1,14 +1,10 @@
-import type { Action, Agent, RawSessionEvent, SessionEvent } from '../types.js'
-
-/**
- * The outcome of a rule evaluating an action.
- *
- * - `pass` — no violation; the rule has no objection.
- * - `violation` — the rule objects; `reason` is surfaced to the agent.
- */
-export type RuleResult =
-  | { kind: 'pass' }
-  | { kind: 'violation'; reason: string }
+import type {
+  Action,
+  Agent,
+  RawSessionEvent,
+  RuleResult,
+  SessionEvent,
+} from '../types.js'
 
 /**
  * Result of a `ctx.readFile` call. `unknown` covers paths the engine

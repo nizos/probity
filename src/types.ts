@@ -1,4 +1,14 @@
 /**
+ * The outcome of a rule evaluating an action.
+ *
+ * - `pass` — no violation; the rule has no objection.
+ * - `violation` — the rule objects; `reason` is surfaced to the agent.
+ */
+export type RuleResult =
+  | { kind: 'pass' }
+  | { kind: 'violation'; reason: string }
+
+/**
  * Canonical action an agent attempts, as seen by rules and the engine.
  * Adapters translate vendor-specific hook payloads into this shape.
  *

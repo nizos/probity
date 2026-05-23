@@ -1,5 +1,5 @@
-import type { Action, RawSessionEvent } from '../types.js'
-import type { FileContent, RuleContext, RuleResult } from './contract.js'
+import type { Action, RawSessionEvent, RuleResult } from '../types.js'
+import type { FileContent, RuleContext } from './contract.js'
 import { countNewTestNodes } from './matchers/count-new-test-nodes.js'
 import { inferLanguage } from './matchers/languages/index.js'
 import { trimHistory, type HistoryWindow } from './trim-history.js'
