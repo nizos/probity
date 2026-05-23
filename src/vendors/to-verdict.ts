@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { Verdict } from '../types.js'
+import type { AgentMeta, Verdict } from '../types.js'
 
 const VerdictSchema = z.object({
   kind: z.enum(['pass', 'violation']),
@@ -8,24 +8,26 @@ const VerdictSchema = z.object({
 })
 
 /**
- * Turns a "give me text from the validator" call into a Verdict.
- * Centralises the fail-closed contract every agent shares: a thrown
- * getText becomes a `violation` verdict whose reason is the error
- * message; the returned string is JSON-parsed (with optional ```json
- * fence stripping) and validated against the verdict shape, with
- * fail-closed for malformed or unexpected responses. Each agent
- * (claude-code, codex, github-copilot) supplies its own transport
- * closure and lets this helper own the verdict shape.
+ * Turns a "give me a response from the validator" call into a Verdict.
+ * The closure returns the SDK's text payload plus any AgentMeta the
+ * vendor extracted (model, tokens). The text is JSON-parsed (with
+ * optional ```json fence stripping) and validated against the verdict
+ * shape; meta forwards onto the returned Verdict regardless of
+ * pass/violation. Fail-closed: a thrown closure or unparseable text
+ * becomes a violation whose reason is the error message.
  */
 export async function toVerdict(
-  getText: () => Promise<string>,
+  getResponse: () => Promise<{ text: string; meta?: AgentMeta }>,
 ): Promise<Verdict> {
+  let response: { text: string; meta?: AgentMeta }
   try {
-    return parseVerdict(await getText())
+    response = await getResponse()
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     return { kind: 'violation', reason }
   }
+  const verdict = parseVerdict(response.text)
+  return response.meta ? { ...verdict, meta: response.meta } : verdict
 }
 
 function parseVerdict(text: string): Verdict {

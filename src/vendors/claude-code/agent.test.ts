@@ -6,7 +6,7 @@ import { claudeCode } from './agent.js'
 describe('claudeCode', () => {
   it('returns the verdict parsed from the final result message', async () => {
     const client = claudeCode({
-      queryFn: fakeQuery('{"kind":"violation","reason":"no test"}'),
+      queryFn: fakeQuery({ result: '{"kind":"violation","reason":"no test"}' }),
     })
 
     const verdict = await client.reason('some prompt')
@@ -16,7 +16,7 @@ describe('claudeCode', () => {
 
   it('parses a distinct verdict from a different query result', async () => {
     const client = claudeCode({
-      queryFn: fakeQuery('{"kind":"pass","reason":"looks fine"}'),
+      queryFn: fakeQuery({ result: '{"kind":"pass","reason":"looks fine"}' }),
     })
 
     const verdict = await client.reason('some prompt')
@@ -83,7 +83,9 @@ describe('claudeCode', () => {
 
   it('parses a verdict from a fenced code block', async () => {
     const client = claudeCode({
-      queryFn: fakeQuery('```json\n{"kind":"pass","reason":"fine"}\n```'),
+      queryFn: fakeQuery({
+        result: '```json\n{"kind":"pass","reason":"fine"}\n```',
+      }),
     })
 
     const verdict = await client.reason('prompt')
@@ -93,7 +95,7 @@ describe('claudeCode', () => {
 
   it('returns a fail-closed violation when the response is not valid JSON', async () => {
     const client = claudeCode({
-      queryFn: fakeQuery('not valid json at all'),
+      queryFn: fakeQuery({ result: 'not valid json at all' }),
     })
 
     const verdict = await client.reason('prompt')
@@ -104,7 +106,7 @@ describe('claudeCode', () => {
 
   it('returns a fail-closed violation when verdict is not pass or violation', async () => {
     const client = claudeCode({
-      queryFn: fakeQuery('{"kind":"maybe","reason":"unsure"}'),
+      queryFn: fakeQuery({ result: '{"kind":"maybe","reason":"unsure"}' }),
     })
 
     const verdict = await client.reason('prompt')
@@ -115,14 +117,7 @@ describe('claudeCode', () => {
 
   it('fails closed when the result message has a non-string result', async () => {
     const client = claudeCode({
-      queryFn: () =>
-        asyncStream([
-          {
-            type: 'result' as const,
-            subtype: 'success' as const,
-            result: { oops: 'this should be a string' },
-          },
-        ]),
+      queryFn: fakeQuery({ result: { oops: 'this should be a string' } }),
     })
 
     const verdict = await client.reason('prompt')
@@ -138,6 +133,25 @@ describe('claudeCode', () => {
     await client.reason('prompt')
 
     expect(capture.last?.options?.env).toBeUndefined()
+  })
+
+  it('attaches model and token meta from the SDK result message to the verdict', async () => {
+    const client = claudeCode({
+      queryFn: fakeQuery({
+        result: '{"kind":"pass","reason":"ok"}',
+        usage: { input_tokens: 1024, output_tokens: 64 },
+        model: 'claude-opus-4-7',
+        duration_ms: 850,
+      }),
+    })
+
+    const verdict = await client.reason('prompt')
+
+    expect(verdict.meta).toEqual({
+      model: 'claude-opus-4-7',
+      inputTokens: 1024,
+      outputTokens: 64,
+    })
   })
 })
 
@@ -166,13 +180,25 @@ function captureQuery() {
   }
 }
 
-function fakeQuery(resultText: string) {
+function fakeQuery(
+  opts: {
+    result?: unknown
+    usage?: { input_tokens?: number; output_tokens?: number }
+    model?: string
+    duration_ms?: number
+  } = {},
+) {
   return () =>
     asyncStream([
       {
         type: 'result' as const,
         subtype: 'success' as const,
-        result: resultText,
+        result: opts.result ?? '{"kind":"pass","reason":""}',
+        ...(opts.usage && { usage: opts.usage }),
+        ...(opts.model !== undefined && { model: opts.model }),
+        ...(opts.duration_ms !== undefined && {
+          duration_ms: opts.duration_ms,
+        }),
       },
     ])
 }

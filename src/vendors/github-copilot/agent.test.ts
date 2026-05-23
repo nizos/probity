@@ -5,22 +5,24 @@ import { githubCopilot } from './agent.js'
 describe('githubCopilot', () => {
   it('returns the verdict parsed from the assistant message content', async () => {
     const client = githubCopilot({
-      client: fakeClient('{"kind":"violation","reason":"no test"}'),
+      client: fakeClient({
+        content: '{"kind":"violation","reason":"no test"}',
+      }),
     })
 
     const verdict = await client.reason('some prompt')
 
-    expect(verdict).toEqual({ kind: 'violation', reason: 'no test' })
+    expect(verdict).toMatchObject({ kind: 'violation', reason: 'no test' })
   })
 
   it('parses a distinct verdict from a different assistant response', async () => {
     const client = githubCopilot({
-      client: fakeClient('{"kind":"pass","reason":"looks fine"}'),
+      client: fakeClient({ content: '{"kind":"pass","reason":"looks fine"}' }),
     })
 
     const verdict = await client.reason('some prompt')
 
-    expect(verdict).toEqual({ kind: 'pass', reason: 'looks fine' })
+    expect(verdict).toMatchObject({ kind: 'pass', reason: 'looks fine' })
   })
 
   it('forwards the rule prompt verbatim to session.sendAndWait', async () => {
@@ -74,14 +76,7 @@ describe('githubCopilot', () => {
 
   it('returns a fail-closed violation when sendAndWait returns undefined', async () => {
     const client = githubCopilot({
-      client: {
-        start: () => Promise.resolve(),
-        createSession: () =>
-          Promise.resolve({
-            sendAndWait: () => Promise.resolve(undefined),
-          }),
-        stop: () => Promise.resolve([]),
-      },
+      client: fakeClient({ sendAndWait: () => Promise.resolve(undefined) }),
     })
 
     const verdict = await client.reason('prompt')
@@ -92,21 +87,34 @@ describe('githubCopilot', () => {
 
   it('returns a fail-closed violation when the SDK call throws', async () => {
     const client = githubCopilot({
-      client: {
-        start: () => Promise.resolve(),
-        createSession: () =>
-          Promise.resolve({
-            sendAndWait: () =>
-              Promise.reject(new Error('copilot CLI not authenticated')),
-          }),
-        stop: () => Promise.resolve([]),
-      },
+      client: fakeClient({
+        sendAndWait: () =>
+          Promise.reject(new Error('copilot CLI not authenticated')),
+      }),
     })
 
     const verdict = await client.reason('prompt')
 
     expect(verdict.kind).toBe('violation')
     expect(verdict.reason).toMatch(/copilot CLI not authenticated/)
+  })
+
+  it('attaches outputTokens from the assistant message to the verdict', async () => {
+    const client = githubCopilot({
+      client: fakeClient({
+        sendAndWait: () =>
+          Promise.resolve({
+            data: {
+              content: '{"kind":"pass","reason":"ok"}',
+              outputTokens: 64,
+            },
+          }),
+      }),
+    })
+
+    const verdict = await client.reason('prompt')
+
+    expect(verdict.meta).toEqual({ outputTokens: 64 })
   })
 })
 
@@ -160,13 +168,24 @@ function captureCopilotClient() {
   }
 }
 
-function fakeClient(assistantContent: string) {
+function fakeClient(
+  opts: {
+    sendAndWait?: () => Promise<
+      { data: { content: string; outputTokens?: number } } | undefined
+    >
+    content?: string
+  } = {},
+) {
   return {
     start: () => Promise.resolve(),
     createSession: () =>
       Promise.resolve({
-        sendAndWait: () =>
-          Promise.resolve({ data: { content: assistantContent } }),
+        sendAndWait:
+          opts.sendAndWait ??
+          (() =>
+            Promise.resolve({
+              data: { content: opts.content ?? '{"kind":"pass","reason":""}' },
+            })),
       }),
     stop: () => Promise.resolve([]),
   }

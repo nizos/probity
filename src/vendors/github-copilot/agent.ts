@@ -1,4 +1,4 @@
-import type { Agent } from '../../types.js'
+import type { Agent, AgentMeta } from '../../types.js'
 import { toVerdict } from '../to-verdict.js'
 
 type SessionConfig = {
@@ -9,9 +9,15 @@ type SessionConfig = {
 type CopilotClientLike = {
   start(): Promise<void>
   createSession(config: SessionConfig): Promise<{
-    sendAndWait(args: {
-      prompt: string
-    }): Promise<{ data: { content: string } } | undefined>
+    sendAndWait(args: { prompt: string }): Promise<
+      | {
+          data: {
+            content: string
+            outputTokens?: number
+          }
+        }
+      | undefined
+    >
   }>
   stop(): Promise<unknown>
 }
@@ -38,9 +44,17 @@ export function githubCopilot(
             'no response from copilot: sendAndWait returned undefined',
           )
         }
-        return event.data.content
+        const meta = buildMeta(event.data.outputTokens)
+        return meta
+          ? { text: event.data.content, meta }
+          : { text: event.data.content }
       }),
   }
+}
+
+function buildMeta(outputTokens: number | undefined): AgentMeta | undefined {
+  if (typeof outputTokens !== 'number') return undefined
+  return { outputTokens }
 }
 
 async function resolveClient(deps: {

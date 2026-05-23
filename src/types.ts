@@ -23,10 +23,28 @@ export type Action =
 export type Decision = { kind: 'allow' } | { kind: 'block'; reason: string }
 
 /**
- * The verdict an AI validator returns — the shape `Agent.reason`
- * resolves to and the shape rules use to decide pass vs violation.
+ * Vendor-normalized SDK telemetry attached to a Verdict. All fields
+ * optional because not every SDK exposes every value (Copilot reports
+ * less than Anthropic, for example). Token field names follow
+ * Anthropic's convention (`inputTokens` / `outputTokens`); per-vendor
+ * agents translate from their SDK's native names.
  */
-export type Verdict = { kind: 'pass' | 'violation'; reason: string }
+export type AgentMeta = {
+  model?: string
+  inputTokens?: number
+  outputTokens?: number
+}
+
+/**
+ * What an AI validator returns. Optional `meta` carries vendor-normalized
+ * telemetry the cli-side observer surfaces onto the trace; rules don't
+ * forward it themselves.
+ */
+export type Verdict = {
+  kind: 'pass' | 'violation'
+  reason: string
+  meta?: AgentMeta
+}
 
 /**
  * The minimal AI-validator contract. Rules that need LLM judgment reach

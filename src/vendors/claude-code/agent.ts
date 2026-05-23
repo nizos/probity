@@ -1,21 +1,21 @@
 import type { Options as ClaudeQueryOptions } from '@anthropic-ai/claude-agent-sdk'
 
-import type { Agent } from '../../types.js'
+import type { Agent, AgentMeta } from '../../types.js'
 import { toVerdict } from '../to-verdict.js'
 
-type Msg = { type: string; [k: string]: unknown }
+type ClaudeMessage = { type: string; [k: string]: unknown }
 
 export type QueryFn = (args: {
   prompt: string
   options?: ClaudeQueryOptions
-}) => AsyncIterable<Msg>
+}) => AsyncIterable<ClaudeMessage>
 
 export function claudeCode(deps: { queryFn?: QueryFn } = {}): Agent {
   return {
     reason: (prompt) =>
       toVerdict(async () => {
         const queryFn = deps.queryFn ?? (await loadDefaultQueryFn())
-        return getResultText(queryFn, prompt)
+        return getResult(queryFn, prompt)
       }),
   }
 }
@@ -25,10 +25,10 @@ async function loadDefaultQueryFn(): Promise<QueryFn> {
   return mod.query
 }
 
-async function getResultText(
+async function getResult(
   queryFn: QueryFn,
   prompt: string,
-): Promise<string> {
+): Promise<{ text: string; meta?: AgentMeta }> {
   for await (const message of queryFn({
     prompt,
     options: {
@@ -63,11 +63,31 @@ async function getResultText(
           `expected string result from validator, got ${typeof message.result}`,
         )
       }
-      return message.result
+      const meta = extractMeta(message)
+      return meta ? { text: message.result, meta } : { text: message.result }
     }
   }
   throw new Error(
     'no result message received: SDK query stream ended without a ' +
       '{type:"result", subtype:"success"} message (typically an SDK/transport failure)',
   )
+}
+
+function extractMeta(message: ClaudeMessage): AgentMeta | undefined {
+  const meta: AgentMeta = {}
+  if (isObject(message.usage)) {
+    const usage = message.usage
+    if (typeof usage.input_tokens === 'number') {
+      meta.inputTokens = usage.input_tokens
+    }
+    if (typeof usage.output_tokens === 'number') {
+      meta.outputTokens = usage.output_tokens
+    }
+  }
+  if (typeof message.model === 'string') meta.model = message.model
+  return Object.keys(meta).length > 0 ? meta : undefined
+}
+
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
 }

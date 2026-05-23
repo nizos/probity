@@ -5,14 +5,16 @@ import { toVerdict } from './to-verdict.js'
 describe('toVerdict', () => {
   it('parses a plain JSON verdict from the text source response', async () => {
     const verdict = await toVerdict(() =>
-      Promise.resolve('{"kind":"pass","reason":"ok"}'),
+      Promise.resolve({ text: '{"kind":"pass","reason":"ok"}' }),
     )
 
     expect(verdict).toEqual({ kind: 'pass', reason: 'ok' })
   })
 
   it('returns a fail-closed violation when the text is not valid JSON', async () => {
-    const verdict = await toVerdict(() => Promise.resolve('not json at all'))
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: 'not json at all' }),
+    )
 
     expect(verdict.kind).toBe('violation')
     expect(verdict.reason).toMatch(/parse|invalid|json/i)
@@ -20,7 +22,7 @@ describe('toVerdict', () => {
 
   it('returns a fail-closed violation when the verdict field is unexpected', async () => {
     const verdict = await toVerdict(() =>
-      Promise.resolve('{"kind":"maybe","reason":"unsure"}'),
+      Promise.resolve({ text: '{"kind":"maybe","reason":"unsure"}' }),
     )
 
     expect(verdict.kind).toBe('violation')
@@ -29,14 +31,14 @@ describe('toVerdict', () => {
 
   it('parses a verdict wrapped in a JSON code fence', async () => {
     const fenced = '```json\n{"kind":"pass","reason":"fine"}\n```'
-    const verdict = await toVerdict(() => Promise.resolve(fenced))
+    const verdict = await toVerdict(() => Promise.resolve({ text: fenced }))
 
     expect(verdict).toEqual({ kind: 'pass', reason: 'fine' })
   })
 
   it('includes the zod issue path and message in the violation reason for shape mismatches', async () => {
     const verdict = await toVerdict(() =>
-      Promise.resolve('{"kind":"pass","reason":42}'),
+      Promise.resolve({ text: '{"kind":"pass","reason":42}' }),
     )
 
     expect(verdict.kind).toBe('violation')
@@ -55,7 +57,7 @@ describe('toVerdict', () => {
 
   it('preserves a useful slice of the validator output in the parse-failure reason (not just the first 200 chars)', async () => {
     const longProse = 'x'.repeat(2000)
-    const verdict = await toVerdict(() => Promise.resolve(longProse))
+    const verdict = await toVerdict(() => Promise.resolve({ text: longProse }))
 
     expect(verdict.kind).toBe('violation')
     expect(verdict.reason).toContain(longProse)
@@ -66,11 +68,28 @@ describe('toVerdict', () => {
       'Looking at this carefully:\n\n## Analysis\n\nThe pending action is fine.\n\n' +
       '{"kind":"pass","reason":"shape change driven by failing test"}'
 
-    const verdict = await toVerdict(() => Promise.resolve(proseThenJson))
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: proseThenJson }),
+    )
 
     expect(verdict).toEqual({
       kind: 'pass',
       reason: 'shape change driven by failing test',
+    })
+  })
+
+  it('forwards AgentMeta from the response source onto the parsed verdict', async () => {
+    const verdict = await toVerdict(() =>
+      Promise.resolve({
+        text: '{"kind":"pass","reason":"ok"}',
+        meta: { model: 'test-model', inputTokens: 100, outputTokens: 20 },
+      }),
+    )
+
+    expect(verdict).toEqual({
+      kind: 'pass',
+      reason: 'ok',
+      meta: { model: 'test-model', inputTokens: 100, outputTokens: 20 },
     })
   })
 })
