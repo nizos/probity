@@ -75,12 +75,14 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
   ),
 ])
 
-// Anything Claude Code fires the hook for that we don't explicitly
-// model (Read, Grep, MultiEdit, NotebookEdit, future tools) becomes a
-// no-op command — no rule matches it, the engine returns allow.
-// `passthroughFor` excludes the known tool names so a malformed
-// Bash / Edit / Write payload still surfaces as a parse error rather
-// than silently passing through.
+/**
+ * Anything Claude Code fires the hook for that we don't explicitly
+ * model (Read, Grep, MultiEdit, NotebookEdit, future tools) becomes a
+ * no-op command: no rule matches it, the engine returns allow.
+ * `passthroughFor` excludes the known tool names so a malformed
+ * Bash / Edit / Write payload still surfaces as a parse error rather
+ * than silently passing through.
+ */
 const passthroughSchema = passthroughFor('tool_name', ['Bash', 'Edit', 'Write'])
 
 export const parseAction = fromSchema(

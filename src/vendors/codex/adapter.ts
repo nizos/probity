@@ -53,12 +53,14 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
   }),
 ])
 
-// Anything Codex fires the hook for that we don't explicitly model
-// (future tools, or a broader user matcher than the recommended
-// `^(Bash|apply_patch|Edit|Write)$`) becomes a no-op command.
-// `passthroughFor` excludes the known tool names so a malformed
-// Bash / apply_patch payload still surfaces as a parse error rather
-// than silently passing through.
+/**
+ * Anything Codex fires the hook for that we don't explicitly model
+ * (future tools, or a broader user matcher than the recommended
+ * `^(Bash|apply_patch|Edit|Write)$`) becomes a no-op command.
+ * `passthroughFor` excludes the known tool names so a malformed
+ * Bash / apply_patch payload still surfaces as a parse error rather
+ * than silently passing through.
+ */
 const passthroughSchema = passthroughFor('tool_name', ['Bash', 'apply_patch'])
 
 export const parseAction = fromSchema(

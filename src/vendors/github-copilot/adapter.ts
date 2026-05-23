@@ -80,11 +80,13 @@ const writeToolsSchema = z.discriminatedUnion('toolName', [
   }),
 ])
 
-// Anything Copilot fires the hook for that we don't explicitly model
-// (view, report_intent, future tools, etc.) becomes a no-op command.
-// `passthroughFor` excludes the known tool names so a malformed
-// `bash` / `create` / `edit` payload still surfaces as a parse error
-// rather than silently passing through.
+/**
+ * Anything Copilot fires the hook for that we don't explicitly model
+ * (view, report_intent, future tools, etc.) becomes a no-op command.
+ * `passthroughFor` excludes the known tool names so a malformed
+ * `bash` / `create` / `edit` payload still surfaces as a parse error
+ * rather than silently passing through.
+ */
 const passthroughSchema = passthroughFor('toolName', ['bash', 'create', 'edit'])
 
 export const parseAction = fromSchema(

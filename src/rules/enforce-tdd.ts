@@ -237,9 +237,11 @@ export function enforceTdd(
   }
 }
 
-// The fast-path is a deterministic check on `count_after - count_before === 1`.
-// `unknown` leaves `count_before` unknowable, so any delta we compute is
-// unverifiable; fall through to the AI rather than risk a false-pass.
+/**
+ * The fast-path is a deterministic check on `count_after - count_before === 1`.
+ * `unknown` leaves `count_before` unknowable, so any delta we compute is
+ * unverifiable; fall through to the AI rather than risk a false-pass.
+ */
 function isSingleNewTest(
   action: { path: string; content: string },
   before: FileContent,

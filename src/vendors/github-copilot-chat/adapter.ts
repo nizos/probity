@@ -73,13 +73,15 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
   }),
 ])
 
-// Anything we don't explicitly recognise (read_file, list_dir,
-// grep_search, future tools, etc.) becomes a no-op command — no rule
-// matches it, the engine returns allow. The Chat extension fires the
-// hook for every tool call, so silently passing through unknown tools
-// is what keeps the surface usable. `passthroughFor` excludes the
-// known tool names so a malformed run_in_terminal / create_file /
-// replace_string_in_file payload still surfaces as a parse error.
+/**
+ * Anything we don't explicitly recognise (read_file, list_dir,
+ * grep_search, future tools, etc.) becomes a no-op command: no rule
+ * matches it, the engine returns allow. The Chat extension fires the
+ * hook for every tool call, so silently passing through unknown tools
+ * is what keeps the surface usable. `passthroughFor` excludes the
+ * known tool names so a malformed run_in_terminal / create_file /
+ * replace_string_in_file payload still surfaces as a parse error.
+ */
 const passthroughSchema = passthroughFor('tool_name', [
   'run_in_terminal',
   'create_file',

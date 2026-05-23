@@ -4,6 +4,16 @@ import { open, type FileHandle } from 'node:fs/promises'
 
 import type { FileContent } from '../rules/contract.js'
 
+/**
+ * Reads a file's content with hardened semantics. Returns:
+ * - `present` with content when the read succeeds within `maxBytes`
+ * - `absent` when the file doesn't exist (ENOENT)
+ * - `unknown` for everything else: symlink refusal (O_NOFOLLOW),
+ *   over-cap content, permission errors, transient I/O failures
+ *
+ * Distinct from a thrown error: rules treat `unknown` as "can't decide
+ * from disk, fall through to the AI" rather than failing the action.
+ */
 export async function safeReadCapped(
   path: string,
   options: { maxBytes?: number } = {},

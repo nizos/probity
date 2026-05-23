@@ -1,10 +1,21 @@
 import type { RawSessionEvent } from '../types.js'
 
+/**
+ * Bounds on the recent-history window an AI rule includes in its prompt.
+ * `maxEvents` caps the count (keeps the tail); `maxContentChars` caps
+ * each event's text/output length (head + tail clip with an omission
+ * marker in the middle).
+ */
 export type HistoryWindow = {
   maxEvents: number
   maxContentChars: number
 }
 
+/**
+ * Returns the last `maxEvents` events, each clipped to `maxContentChars`.
+ * Events whose content is already within the cap pass through by
+ * reference; only oversized events are rewritten.
+ */
 export function trimHistory(
   events: RawSessionEvent[],
   window: HistoryWindow,
