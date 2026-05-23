@@ -33,6 +33,41 @@ export type Action =
 export type Decision = { kind: 'allow' } | { kind: 'block'; reason: string }
 
 /**
+ * An entry in the engine's trace.
+ *
+ * - `rule-evaluated` — a rule ran and returned a result; the entry is
+ *   pushed even for the violator that triggers a short-circuit.
+ *   Optional `agentCalls` records AI validator calls the rule made
+ *   during its run; captured by an external observer subscribed to
+ *   the engine's lifecycle hooks, not by the rule itself.
+ * - `rule-threw` — a rule threw an exception; the engine fail-closes
+ *   to a block decision, and this entry attributes the throw.
+ * - `parse-failed` — the cli's parse layer rejected the payload before
+ *   the engine ran; no rule was evaluated.
+ */
+export type TraceEntry =
+  | {
+      kind: 'rule-evaluated'
+      rule: string
+      result: RuleResult
+      durationMs: number
+      agentCalls?: readonly AgentCall[]
+    }
+  | { kind: 'rule-threw'; rule: string; reason: string; durationMs: number }
+  | { kind: 'parse-failed'; reason: string }
+
+/**
+ * A recorded AI validator invocation. `durationMs` is the wall-clock
+ * measured by the observer at the call site; the embedded `verdict`
+ * carries the call's kind, reason, and any vendor-normalized telemetry
+ * the agent attached as `AgentMeta`.
+ */
+export type AgentCall = {
+  durationMs: number
+  verdict: Verdict
+}
+
+/**
  * Vendor-normalized SDK telemetry attached to a Verdict. All fields
  * optional because not every SDK exposes every value (Copilot reports
  * less than Anthropic, for example). Token field names follow

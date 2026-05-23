@@ -4,6 +4,18 @@ import type { Rule, RuleContext } from './rules/contract.js'
 import { actionMatchesFilesScope } from './rules/utils/match-paths.js'
 
 /**
+ * Capability-agnostic lifecycle hooks the engine emits around each
+ * rule call. Concrete observers (e.g. cli's agent-call collector)
+ * subscribe at the composition root; the engine doesn't know what
+ * they do with the events. Both hooks fire even if the rule throws
+ * or the engine short-circuits on a violation.
+ */
+export type EvaluateHooks = {
+  onRuleStart?: (ruleName: string) => void
+  onRuleEnd?: (ruleName: string) => void
+}
+
+/**
  * Run rules against an action, returning the first violation as a block
  * decision or allow if none object. Fail-closed: a rule that throws
  * becomes a block decision with the error message rather than escaping
