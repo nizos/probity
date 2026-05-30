@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs'
 import type { PreToolUseHookOutput } from '@github/copilot/sdk'
 import { describe, it, onTestFinished } from 'vitest'
 
+// Mute the experimental-feature warning that copilot's CLI subprocess emits via
+// node:sqlite. Scoped to this file's worker by vitest's per-file isolation.
+process.env.NODE_NO_WARNINGS = '1'
+
 import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
