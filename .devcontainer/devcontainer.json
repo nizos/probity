@@ -15,5 +15,5 @@
     "CLAUDE_CONFIG_DIR": "/home/node/.claude"
   },
   "remoteUser": "node",
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code@latest"
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest @github/copilot@latest @google/gemini-cli@latest"
 }

@@ -5,8 +5,8 @@ A consistent dev environment for working on Probity.
 ## What's Inside
 
 - Node.js 24 on Debian bookworm
-- Claude Code CLI and VS Code extension, preinstalled
-- GitHub CLI
+- CLIs: Claude Code, Codex, GitHub Copilot, Gemini, and GitHub
+- VS Code extensions: Claude Code
 - Persistent volume for `~/.claude` so credentials and history survive rebuilds
 
 ## Quick Start
