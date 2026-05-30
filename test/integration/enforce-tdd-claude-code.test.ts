@@ -1,11 +1,18 @@
-import { describe, it } from 'vitest'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { describe, expect, test as baseTest, type TestContext } from 'vitest'
 
 import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
-import { expectDecision } from './helpers/expect-decision.js'
-import { createSandbox } from './helpers/sandbox.js'
+import { claudeCode } from '../../src/vendors/claude-code/agent.js'
+import {
+  preflightAuth,
+  type PreflightResult,
+} from './helpers/preflight-auth.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
@@ -14,129 +21,153 @@ import {
   OVER_IMPL,
   PLUS_ONE_TEST,
   PLUS_TWO_TESTS,
-  targetFilename,
 } from './helpers/tdd-fixtures.js'
 
-const runAi = process.env.PROBITY_INTEGRATION_AI === '1'
-const AI_TIMEOUT = 60_000
-
-describe.skipIf(!runAi)(
-  'enforce-tdd + claude-code',
-  () => {
-    it('allows clean TDD with minimal implementation', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/tdd-clean.jsonl',
-        pendingContent: MINIMAL_IMPL,
-      })
-
-      expectDecision(result, 'allow')
-    })
-
-    it('blocks clear over-implementation', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/tdd-over-impl.jsonl',
-        pendingContent: OVER_IMPL,
-      })
-
-      expectDecision(result, 'deny')
-    })
-
-    it('blocks implementation when the failing test has not been run', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/tdd-no-test-run.jsonl',
-        pendingContent: MINIMAL_IMPL,
-      })
-
-      expectDecision(result, 'deny')
-    })
-
-    it('allows adding a second test to an existing test file', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
-        beforeFile: EXISTING_TEST_CONTENT,
-        pendingContent: PLUS_ONE_TEST,
-      })
-
-      expectDecision(result, 'allow')
-    })
-
-    it('blocks when two new tests are added in a single write', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
-        beforeFile: EXISTING_TEST_CONTENT,
-        pendingContent: PLUS_TWO_TESTS,
-      })
-
-      expectDecision(result, 'deny')
-    })
-
-    it('allows a stub when a recent failing test is buried under noisy follow-up reads', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
-        pendingContent: MODULO_STUB_IMPL,
-      })
-
-      expectDecision(result, 'allow')
-    })
-
-    it('allows the first write of a multi-step change', async () => {
-      // adds an import; the follow-up write will call into it
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
-        beforeFile: MINIMAL_IMPL,
-        pendingContent: MINIMAL_IMPL_PLUS_UNUSED_IMPORT,
-      })
-
-      expectDecision(result, 'allow')
-    })
-  },
-  AI_TIMEOUT,
-)
-
-async function runScenario(opts: {
-  transcript: string
-  pendingContent: string
-  beforeFile?: string
-}): Promise<{ decision: string; reason?: string }> {
-  const filename = targetFilename(opts.pendingContent)
-  const sandbox = await createSandbox(
-    opts.beforeFile !== undefined ? { [filename]: opts.beforeFile } : {},
-  )
-  const filePath = sandbox.getPath(filename)
-  const { response } = await run(
-    buildPayload({
-      transcript: opts.transcript,
-      filePath,
-      content: opts.pendingContent,
-    }),
-    {
-      vendor: 'claude-code',
-      loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
-    },
-  )
-  return extractResult(response)
+const T = {
+  clean: 'test/fixtures/transcripts/tdd-clean.jsonl',
+  overImpl: 'test/fixtures/transcripts/tdd-over-impl.jsonl',
+  noTestRun: 'test/fixtures/transcripts/tdd-no-test-run.jsonl',
+  cycleCompleted: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
+  noisyBuriedFailure:
+    'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
 }
 
-function buildPayload(opts: {
-  transcript: string
-  filePath: string
+type ScenarioInput = {
   content: string
-}): string {
-  return JSON.stringify({
+  transcript: string
+  filename?: string
+  seed?: string
+}
+
+type ScenarioResult = { decision: string; reason?: string }
+
+const it = baseTest
+  .extend('preflight', { scope: 'file' }, probeAuth)
+  .extend('authGuard', { auto: true }, ({ preflight, skip }) => {
+    skipIfUnauthed(preflight, skip)
+  })
+  .extend('sandbox', async ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend(
+    'runScenario',
+    ({ sandbox }) =>
+      (input: ScenarioInput) =>
+        runScenario({ sandbox, ...input }),
+  )
+
+describe.concurrent(
+  'enforce-tdd + claude-code',
+  () => {
+    it('allows clean TDD with minimal implementation', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        content: MINIMAL_IMPL,
+        transcript: T.clean,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('blocks clear over-implementation', async ({ runScenario }) => {
+      const result = await runScenario({
+        content: OVER_IMPL,
+        transcript: T.overImpl,
+      })
+      expect(result.decision, result.reason).toBe('deny')
+    })
+
+    it('blocks when the failing test has not been run', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        content: MINIMAL_IMPL,
+        transcript: T.noTestRun,
+      })
+      expect(result.decision, result.reason).toBe('deny')
+    })
+
+    it('allows adding a second test to an existing test file', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'target.test.ts',
+        seed: EXISTING_TEST_CONTENT,
+        content: PLUS_ONE_TEST,
+        transcript: T.cycleCompleted,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('blocks when two new tests are added in a single write', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'target.test.ts',
+        seed: EXISTING_TEST_CONTENT,
+        content: PLUS_TWO_TESTS,
+        transcript: T.cycleCompleted,
+      })
+      expect(result.decision, result.reason).toBe('deny')
+    })
+
+    it('allows a stub when a recent failing test is buried under noisy follow-up reads', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        content: MODULO_STUB_IMPL,
+        transcript: T.noisyBuriedFailure,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('allows the first write of a multi-step change', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        seed: MINIMAL_IMPL,
+        content: MINIMAL_IMPL_PLUS_UNUSED_IMPORT,
+        transcript: T.cycleCompleted,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+  },
+  60_000,
+)
+
+async function probeAuth() {
+  return preflightAuth(claudeCode())
+}
+
+function skipIfUnauthed(preflight: PreflightResult, skip: TestContext['skip']) {
+  if (!preflight.ok) skip(true, preflight.reason)
+}
+
+async function makeSandboxDir(
+  onCleanup: (fn: () => Promise<void> | void) => void,
+) {
+  const dir = await mkdtemp(join(tmpdir(), 'probity-'))
+  onCleanup(() => rm(dir, { recursive: true, force: true }))
+  return dir
+}
+
+async function runScenario(
+  input: ScenarioInput & { sandbox: string },
+): Promise<ScenarioResult> {
+  const filePath = join(input.sandbox, input.filename ?? 'target.ts')
+  if (input.seed !== undefined) await writeFile(filePath, input.seed)
+  const payload = JSON.stringify({
     session_id: 'integration',
-    transcript_path: opts.transcript,
+    transcript_path: input.transcript,
     cwd: '/workspaces/probity',
     hook_event_name: 'PreToolUse',
     tool_name: 'Write',
-    tool_input: { file_path: opts.filePath, content: opts.content },
+    tool_input: { file_path: filePath, content: input.content },
     tool_use_id: 'toolu_integration',
   })
-}
-
-function extractResult(response: string): {
-  decision: string
-  reason?: string
-} {
+  const { response } = await run(payload, {
+    vendor: 'claude-code',
+    loadConfig: () =>
+      Promise.resolve({ rules: [enforceTdd({ fastPath: false })] }),
+  })
   if (response === '') return { decision: 'allow' }
   const out = parseAs<ClaudeCodeResponse>(response).hookSpecificOutput
   return {
