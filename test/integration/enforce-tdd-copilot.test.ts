@@ -97,7 +97,8 @@ async function runScenario(opts: {
     buildPayload({ filePath, content: opts.pendingContent }),
     {
       vendor: 'github-copilot',
-      loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
+      loadConfig: () =>
+        Promise.resolve({ rules: [enforceTdd({ fastPath: false })] }),
     },
   )
   return extractResult(response)
