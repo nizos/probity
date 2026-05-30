@@ -89,7 +89,8 @@ async function runScenario(opts: {
     }),
     {
       vendor: 'codex',
-      loadConfig: () => Promise.resolve({ rules: [enforceTdd()] }),
+      loadConfig: () =>
+        Promise.resolve({ rules: [enforceTdd({ fastPath: false })] }),
     },
   )
   return extractResult(response)
