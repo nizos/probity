@@ -1,7 +1,9 @@
-import { readFileSync } from 'node:fs'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import type { PreToolUseHookOutput } from '@github/copilot/sdk'
-import { describe, it, onTestFinished } from 'vitest'
+import { describe, expect, test as baseTest, type TestContext } from 'vitest'
 
 // Mute the experimental-feature warning that copilot's CLI subprocess emits via
 // node:sqlite. Scoped to this file's worker by vitest's per-file isolation.
@@ -10,135 +12,158 @@ process.env.NODE_NO_WARNINGS = '1'
 import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
-import { expectDecision } from './helpers/expect-decision.js'
-import { createSandbox } from './helpers/sandbox.js'
+import { githubCopilot } from '../../src/vendors/github-copilot/agent.js'
+import {
+  preflightAuth,
+  type PreflightResult,
+} from './helpers/preflight-auth.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
   OVER_IMPL,
   PLUS_ONE_TEST,
   PLUS_TWO_TESTS,
-  targetFilename,
 } from './helpers/tdd-fixtures.js'
 
-const runAi = process.env.PROBITY_INTEGRATION_AI === '1'
-const AI_TIMEOUT = 60_000
-const SESSION_ID = 'integration-copilot'
-
-describe.skipIf(!runAi)(
-  'enforce-tdd + github-copilot',
-  () => {
-    it('allows a minimal add implementation after a failing test was run', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/copilot-tdd-clean.jsonl',
-        pendingContent: MINIMAL_IMPL,
-      })
-
-      expectDecision(result, 'allow')
-    })
-
-    it('blocks an over-implementation that adds many unrequested functions', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/copilot-tdd-clean.jsonl',
-        pendingContent: OVER_IMPL,
-      })
-
-      expectDecision(result, 'deny')
-    })
-
-    it('blocks implementation when the failing test has not been run', async () => {
-      const result = await runScenario({
-        transcript: 'test/fixtures/transcripts/copilot-tdd-no-test-run.jsonl',
-        pendingContent: MINIMAL_IMPL,
-      })
-
-      expectDecision(result, 'deny')
-    })
-
-    it('allows adding a second test to an existing test file', async () => {
-      const result = await runScenario({
-        transcript:
-          'test/fixtures/transcripts/copilot-tdd-cycle-completed.jsonl',
-        beforeFile: EXISTING_TEST_CONTENT,
-        pendingContent: PLUS_ONE_TEST,
-      })
-
-      expectDecision(result, 'allow')
-    })
-
-    it('blocks when two new tests are added in a single write', async () => {
-      const result = await runScenario({
-        transcript:
-          'test/fixtures/transcripts/copilot-tdd-cycle-completed.jsonl',
-        beforeFile: EXISTING_TEST_CONTENT,
-        pendingContent: PLUS_TWO_TESTS,
-      })
-
-      expectDecision(result, 'deny')
-    })
-  },
-  AI_TIMEOUT,
-)
-
-async function runScenario(opts: {
-  transcript: string
-  pendingContent: string
-  beforeFile?: string
-}): Promise<{ decision: string; reason?: string }> {
-  const filename = targetFilename(opts.pendingContent)
-  const homeSandbox = await createSandbox({
-    [`session-state/${SESSION_ID}/events.jsonl`]: readFileSync(
-      opts.transcript,
-      'utf8',
-    ),
-  })
-  useCopilotHome(homeSandbox.path)
-  const fileSandbox = await createSandbox(
-    opts.beforeFile !== undefined ? { [filename]: opts.beforeFile } : {},
-  )
-  const filePath = fileSandbox.getPath(filename)
-  const { response } = await run(
-    buildPayload({ filePath, content: opts.pendingContent }),
-    {
-      vendor: 'github-copilot',
-      loadConfig: () =>
-        Promise.resolve({ rules: [enforceTdd({ fastPath: false })] }),
-    },
-  )
-  return extractResult(response)
+const T = {
+  clean: 'test/fixtures/transcripts/copilot-tdd-clean.jsonl',
+  noTestRun: 'test/fixtures/transcripts/copilot-tdd-no-test-run.jsonl',
+  cycleCompleted: 'test/fixtures/transcripts/copilot-tdd-cycle-completed.jsonl',
 }
 
-/**
- * Points `COPILOT_HOME` at `value` for the duration of the current
- * test, restoring whatever was there before (or unsetting if nothing
- * was) when the test finishes.
- */
-function useCopilotHome(value: string): void {
+const SESSION_ID = 'integration-copilot'
+
+type ScenarioInput = {
+  content: string
+  transcript: string
+  filename?: string
+  seed?: string
+}
+
+type ScenarioResult = { decision: string; reason?: string }
+
+const it = baseTest
+  .extend('preflight', { scope: 'file' }, probeAuth)
+  .extend('authGuard', { auto: true }, ({ preflight, skip }) => {
+    skipIfUnauthed(preflight, skip)
+  })
+  .extend('sandbox', async ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('copilotHome', async ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('copilotEnv', { auto: true }, ({ copilotHome }, { onCleanup }) => {
+    bindCopilotHome(copilotHome, onCleanup)
+  })
+  .extend(
+    'runScenario',
+    ({ sandbox, copilotHome }) =>
+      (input: ScenarioInput) =>
+        runScenario({ sandbox, copilotHome, ...input }),
+  )
+
+describe('enforce-tdd + github-copilot', () => {
+  it('allows a minimal add implementation after a failing test was run', async ({
+    runScenario,
+  }) => {
+    const result = await runScenario({
+      content: MINIMAL_IMPL,
+      transcript: T.clean,
+    })
+    expect(result.decision, result.reason).toBe('allow')
+  })
+
+  it('blocks an over-implementation that adds many unrequested functions', async ({
+    runScenario,
+  }) => {
+    const result = await runScenario({
+      content: OVER_IMPL,
+      transcript: T.clean,
+    })
+    expect(result.decision, result.reason).toBe('deny')
+  })
+
+  it('blocks when the failing test has not been run', async ({
+    runScenario,
+  }) => {
+    const result = await runScenario({
+      content: MINIMAL_IMPL,
+      transcript: T.noTestRun,
+    })
+    expect(result.decision, result.reason).toBe('deny')
+  })
+
+  it('allows adding a second test to an existing test file', async ({
+    runScenario,
+  }) => {
+    const result = await runScenario({
+      filename: 'target.test.ts',
+      seed: EXISTING_TEST_CONTENT,
+      content: PLUS_ONE_TEST,
+      transcript: T.cycleCompleted,
+    })
+    expect(result.decision, result.reason).toBe('allow')
+  })
+
+  it('blocks when two new tests are added in a single write', async ({
+    runScenario,
+  }) => {
+    const result = await runScenario({
+      filename: 'target.test.ts',
+      seed: EXISTING_TEST_CONTENT,
+      content: PLUS_TWO_TESTS,
+      transcript: T.cycleCompleted,
+    })
+    expect(result.decision, result.reason).toBe('deny')
+  })
+}, 60_000)
+
+async function probeAuth() {
+  return preflightAuth(githubCopilot())
+}
+
+function skipIfUnauthed(preflight: PreflightResult, skip: TestContext['skip']) {
+  if (!preflight.ok) skip(true, preflight.reason)
+}
+
+async function makeSandboxDir(
+  onCleanup: (fn: () => Promise<void> | void) => void,
+) {
+  const dir = await mkdtemp(join(tmpdir(), 'probity-'))
+  onCleanup(() => rm(dir, { recursive: true, force: true }))
+  return dir
+}
+
+function bindCopilotHome(
+  copilotHome: string,
+  onCleanup: (fn: () => Promise<void> | void) => void,
+): void {
   const previous = process.env.COPILOT_HOME
-  process.env.COPILOT_HOME = value
-  onTestFinished(() => {
+  process.env.COPILOT_HOME = copilotHome
+  onCleanup(() => {
     if (previous === undefined) delete process.env.COPILOT_HOME
     else process.env.COPILOT_HOME = previous
   })
 }
 
-function buildPayload(opts: { filePath: string; content: string }): string {
-  return JSON.stringify({
+async function runScenario(
+  input: ScenarioInput & { sandbox: string; copilotHome: string },
+): Promise<ScenarioResult> {
+  const filePath = join(input.sandbox, input.filename ?? 'target.ts')
+  if (input.seed !== undefined) await writeFile(filePath, input.seed)
+  await seedCopilotSession(input.copilotHome, input.transcript)
+  const payload = JSON.stringify({
     sessionId: SESSION_ID,
     timestamp: Date.now(),
     cwd: '/workspaces/probity',
     toolName: 'create',
     toolArgs: JSON.stringify({
-      path: opts.filePath,
-      file_text: opts.content,
+      path: filePath,
+      file_text: input.content,
     }),
   })
-}
-
-function extractResult(response: string): {
-  decision: string
-  reason?: string
-} {
+  const { response } = await run(payload, {
+    vendor: 'github-copilot',
+    loadConfig: () =>
+      Promise.resolve({ rules: [enforceTdd({ fastPath: false })] }),
+  })
   if (response === '') return { decision: 'allow' }
   const parsed = parseAs<PreToolUseHookOutput>(response)
   return {
@@ -147,4 +172,14 @@ function extractResult(response: string): {
       reason: parsed.permissionDecisionReason,
     }),
   }
+}
+
+async function seedCopilotSession(
+  copilotHome: string,
+  transcript: string,
+): Promise<void> {
+  const sessionDir = join(copilotHome, 'session-state', SESSION_ID)
+  await mkdir(sessionDir, { recursive: true })
+  const events = await readFile(transcript, 'utf8')
+  await writeFile(join(sessionDir, 'events.jsonl'), events)
 }
