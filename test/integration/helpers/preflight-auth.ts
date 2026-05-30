@@ -1,3 +1,5 @@
+import type { TestContext } from 'vitest'
+
 import type { Agent } from '../../../src/types.js'
 import { isVendorAuthFailure } from './auth-patterns.js'
 
@@ -14,4 +16,11 @@ export async function preflightAuth(agent: Agent): Promise<PreflightResult> {
     return { ok: false, reason: verdict.reason }
   }
   return { ok: true }
+}
+
+export function skipIfUnauthed(
+  preflight: PreflightResult,
+  skip: TestContext['skip'],
+): void {
+  if (!preflight.ok) skip(true, preflight.reason)
 }

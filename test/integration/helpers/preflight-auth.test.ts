@@ -1,7 +1,7 @@
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished, type TestContext } from 'vitest'
 
 import type { Agent } from '../../../src/types.js'
-import { preflightAuth } from './preflight-auth.js'
+import { preflightAuth, skipIfUnauthed } from './preflight-auth.js'
 
 describe('preflightAuth', () => {
   it('skips with a reason when PROBITY_INTEGRATION_AI is not set', async () => {
@@ -55,6 +55,26 @@ describe('preflightAuth', () => {
   )
 })
 
+describe('skipIfUnauthed', () => {
+  it('calls skip with the preflight reason when not ok', () => {
+    const recorder = recordSkipCalls()
+
+    skipIfUnauthed({ ok: false, reason: 'not authenticated' }, recorder.skip)
+
+    expect(recorder.calls).toEqual([
+      { condition: true, note: 'not authenticated' },
+    ])
+  })
+
+  it('does not call skip when preflight is ok', () => {
+    const recorder = recordSkipCalls()
+
+    skipIfUnauthed({ ok: true }, recorder.skip)
+
+    expect(recorder.calls).toEqual([])
+  })
+})
+
 function withEnv(name: string, value: string | undefined): void {
   const previous = process.env[name]
   if (value === undefined) delete process.env[name]
@@ -78,4 +98,21 @@ function passAgent(
     | { kind: 'violation'; reason: string },
 ): Agent {
   return { reason: () => Promise.resolve(verdict) }
+}
+
+type SkipCall = {
+  condition?: boolean | undefined
+  note?: string | undefined
+}
+
+function recordSkipCalls(): { skip: TestContext['skip']; calls: SkipCall[] } {
+  const calls: SkipCall[] = []
+  const skip = ((conditionOrNote?: boolean | string, note?: string): void => {
+    if (typeof conditionOrNote === 'boolean') {
+      calls.push({ condition: conditionOrNote, note })
+    } else {
+      calls.push({ note: conditionOrNote })
+    }
+  }) as TestContext['skip']
+  return { skip, calls }
 }
