@@ -1,9 +1,8 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { PreToolUseHookOutput } from '@github/copilot/sdk'
-import { describe, expect, test as baseTest, type TestContext } from 'vitest'
+import { describe, expect, test as baseTest } from 'vitest'
 
 // Mute the experimental-feature warning that copilot's CLI subprocess emits via
 // node:sqlite. Scoped to this file's worker by vitest's per-file isolation.
@@ -13,10 +12,8 @@ import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import { githubCopilot } from '../../src/vendors/github-copilot/agent.js'
-import {
-  preflightAuth,
-  type PreflightResult,
-} from './helpers/preflight-auth.js'
+import { preflightAuth, skipIfUnauthed } from './helpers/preflight-auth.js'
+import { makeSandboxDir } from './helpers/sandbox.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
@@ -47,8 +44,8 @@ const it = baseTest
   .extend('authGuard', { auto: true }, ({ preflight, skip }) => {
     skipIfUnauthed(preflight, skip)
   })
-  .extend('sandbox', async ({}, { onCleanup }) => makeSandboxDir(onCleanup))
-  .extend('copilotHome', async ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('sandbox', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('copilotHome', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
   .extend('copilotEnv', { auto: true }, ({ copilotHome }, { onCleanup }) => {
     bindCopilotHome(copilotHome, onCleanup)
   })
@@ -117,18 +114,6 @@ describe('enforce-tdd + github-copilot', () => {
 
 async function probeAuth() {
   return preflightAuth(githubCopilot())
-}
-
-function skipIfUnauthed(preflight: PreflightResult, skip: TestContext['skip']) {
-  if (!preflight.ok) skip(true, preflight.reason)
-}
-
-async function makeSandboxDir(
-  onCleanup: (fn: () => Promise<void> | void) => void,
-) {
-  const dir = await mkdtemp(join(tmpdir(), 'probity-'))
-  onCleanup(() => rm(dir, { recursive: true, force: true }))
-  return dir
 }
 
 function bindCopilotHome(
