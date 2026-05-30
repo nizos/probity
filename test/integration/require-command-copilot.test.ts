@@ -1,10 +1,15 @@
-import { describe, it, onTestFinished } from 'vitest'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+
+import { describe, expect, test as baseTest } from 'vitest'
 
 import { run } from '../../src/cli.js'
 import { requireCommand } from '../../src/rules/require-command.js'
-import { decodeResponse } from './helpers/decode-response.js'
-import { expectDecision } from './helpers/expect-decision.js'
-import { createSandbox } from './helpers/sandbox.js'
+import {
+  decodeResponse,
+  type DecodedResponse,
+} from './helpers/decode-response.js'
+import { makeSandboxDir } from './helpers/sandbox.js'
 
 const SESSION_ID = 'integration-require-command-copilot'
 
@@ -30,57 +35,68 @@ const LINT_BEFORE_COMMIT = requireCommand({
   after: { kind: 'write' },
 })
 
+const it = baseTest
+  .extend('sandbox', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('copilotEnv', { auto: true }, ({ sandbox }, { onCleanup }) => {
+    bindCopilotHome(sandbox, onCleanup)
+  })
+  .extend('transcript', TRANSCRIPT_EDIT_AFTER_LINT)
+  .extend(
+    'result',
+    async ({ sandbox, transcript }: { sandbox: string; transcript: string }) =>
+      runScenario(sandbox, transcript),
+  )
+
 describe('require-command + github-copilot', () => {
-  it('denies a `git commit` when an `edit` action happened between the required `npm run lint` and the commit', async () => {
-    const homeSandbox = await createSandbox({
-      [`session-state/${SESSION_ID}/events.jsonl`]: TRANSCRIPT_EDIT_AFTER_LINT,
+  describe('an edit happened between the required lint and the commit', () => {
+    it.override('transcript', TRANSCRIPT_EDIT_AFTER_LINT)
+
+    it('denies the commit', ({ result }) => {
+      expect(result.decision, result.reason).toBe('deny')
     })
-    useCopilotHome(homeSandbox.path)
-
-    const { response } = await run(
-      buildBashPayload({ command: 'git commit -m "wip"' }),
-      {
-        vendor: 'github-copilot',
-        loadConfig: () => Promise.resolve({ rules: [LINT_BEFORE_COMMIT] }),
-      },
-    )
-
-    expectDecision(decodeResponse('github-copilot', response), 'deny')
   })
 
-  it('allows a `git commit` when the required `npm run lint` was the most recent event and no edit followed', async () => {
-    const homeSandbox = await createSandbox({
-      [`session-state/${SESSION_ID}/events.jsonl`]: TRANSCRIPT_LINT_ONLY,
+  describe('lint was the most recent event and no edit followed', () => {
+    it.override('transcript', TRANSCRIPT_LINT_ONLY)
+
+    it('allows the commit', ({ result }) => {
+      expect(result.decision, result.reason).toBe('allow')
     })
-    useCopilotHome(homeSandbox.path)
-
-    const { response } = await run(
-      buildBashPayload({ command: 'git commit -m "wip"' }),
-      {
-        vendor: 'github-copilot',
-        loadConfig: () => Promise.resolve({ rules: [LINT_BEFORE_COMMIT] }),
-      },
-    )
-
-    expectDecision(decodeResponse('github-copilot', response), 'allow')
   })
 })
 
-function useCopilotHome(value: string): void {
+function bindCopilotHome(
+  copilotHome: string,
+  onCleanup: (fn: () => Promise<void> | void) => void,
+): void {
   const previous = process.env.COPILOT_HOME
-  process.env.COPILOT_HOME = value
-  onTestFinished(() => {
+  process.env.COPILOT_HOME = copilotHome
+  onCleanup(() => {
     if (previous === undefined) delete process.env.COPILOT_HOME
     else process.env.COPILOT_HOME = previous
   })
 }
 
-function buildBashPayload(opts: { command: string }): string {
+async function runScenario(
+  copilotHome: string,
+  transcript: string,
+): Promise<DecodedResponse> {
+  const sessionDir = join(copilotHome, 'session-state', SESSION_ID)
+  await mkdir(sessionDir, { recursive: true })
+  await writeFile(join(sessionDir, 'events.jsonl'), transcript)
+  const { response } = await run(buildBashPayload('git commit -m "wip"'), {
+    vendor: 'github-copilot',
+    loadConfig: () => Promise.resolve({ rules: [LINT_BEFORE_COMMIT] }),
+  })
+  return decodeResponse('github-copilot', response)
+}
+
+function buildBashPayload(command: string): string {
   return JSON.stringify({
     sessionId: SESSION_ID,
     timestamp: Date.now(),
     cwd: '/workspaces/probity',
     toolName: 'bash',
-    toolArgs: JSON.stringify({ command: opts.command }),
+    toolArgs: JSON.stringify({ command }),
   })
 }

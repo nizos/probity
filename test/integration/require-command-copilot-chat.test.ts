@@ -1,10 +1,15 @@
-import { describe, it } from 'vitest'
+import { join } from 'node:path'
+import { writeFile } from 'node:fs/promises'
+
+import { describe, expect, test as baseTest } from 'vitest'
 
 import { run } from '../../src/cli.js'
 import { requireCommand } from '../../src/rules/require-command.js'
-import { decodeResponse } from './helpers/decode-response.js'
-import { expectDecision } from './helpers/expect-decision.js'
-import { createSandbox } from './helpers/sandbox.js'
+import {
+  decodeResponse,
+  type DecodedResponse,
+} from './helpers/decode-response.js'
+import { makeSandboxDir } from './helpers/sandbox.js'
 
 const TRANSCRIPT_FILENAME = 'transcript.jsonl'
 
@@ -27,54 +32,54 @@ const LINT_BEFORE_COMMIT = requireCommand({
   after: { kind: 'write' },
 })
 
+const it = baseTest
+  .extend('sandbox', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('transcript', TRANSCRIPT_EDIT_AFTER_LINT)
+  .extend(
+    'result',
+    async ({ sandbox, transcript }: { sandbox: string; transcript: string }) =>
+      runScenario(sandbox, transcript),
+  )
+
 describe('require-command + github-copilot-chat', () => {
-  it('denies a `git commit` when a `replace_string_in_file` action happened between the required `npm run lint` and the commit', async () => {
-    const sandbox = await createSandbox({
-      [TRANSCRIPT_FILENAME]: TRANSCRIPT_EDIT_AFTER_LINT,
+  describe('a replace_string_in_file happened between the required lint and the commit', () => {
+    it.override('transcript', TRANSCRIPT_EDIT_AFTER_LINT)
+
+    it('denies the commit', ({ result }) => {
+      expect(result.decision, result.reason).toBe('deny')
     })
-
-    const { response } = await run(
-      buildBashPayload({
-        command: 'git commit -m "wip"',
-        transcriptPath: sandbox.getPath(TRANSCRIPT_FILENAME),
-      }),
-      {
-        vendor: 'github-copilot-chat',
-        loadConfig: () => Promise.resolve({ rules: [LINT_BEFORE_COMMIT] }),
-      },
-    )
-
-    expectDecision(decodeResponse('github-copilot-chat', response), 'deny')
   })
 
-  it('allows a `git commit` when the required `npm run lint` was the most recent event and no edit followed', async () => {
-    const sandbox = await createSandbox({
-      [TRANSCRIPT_FILENAME]: TRANSCRIPT_LINT_ONLY,
+  describe('lint was the most recent event and no edit followed', () => {
+    it.override('transcript', TRANSCRIPT_LINT_ONLY)
+
+    it('allows the commit', ({ result }) => {
+      expect(result.decision, result.reason).toBe('allow')
     })
-
-    const { response } = await run(
-      buildBashPayload({
-        command: 'git commit -m "wip"',
-        transcriptPath: sandbox.getPath(TRANSCRIPT_FILENAME),
-      }),
-      {
-        vendor: 'github-copilot-chat',
-        loadConfig: () => Promise.resolve({ rules: [LINT_BEFORE_COMMIT] }),
-      },
-    )
-
-    expectDecision(decodeResponse('github-copilot-chat', response), 'allow')
   })
 })
 
-function buildBashPayload(opts: {
-  command: string
-  transcriptPath: string
-}): string {
+async function runScenario(
+  sandbox: string,
+  transcript: string,
+): Promise<DecodedResponse> {
+  const transcriptPath = join(sandbox, TRANSCRIPT_FILENAME)
+  await writeFile(transcriptPath, transcript)
+  const { response } = await run(
+    buildBashPayload('git commit -m "wip"', transcriptPath),
+    {
+      vendor: 'github-copilot-chat',
+      loadConfig: () => Promise.resolve({ rules: [LINT_BEFORE_COMMIT] }),
+    },
+  )
+  return decodeResponse('github-copilot-chat', response)
+}
+
+function buildBashPayload(command: string, transcriptPath: string): string {
   return JSON.stringify({
-    transcript_path: opts.transcriptPath,
+    transcript_path: transcriptPath,
     cwd: '/workspaces/probity',
     tool_name: 'run_in_terminal',
-    tool_input: { command: opts.command },
+    tool_input: { command },
   })
 }
