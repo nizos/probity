@@ -1,22 +1,25 @@
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { describe, it, expect, onTestFinished } from 'vitest'
+import { describe, expect, test as baseTest } from 'vitest'
 
+import { makeSandboxDir } from '../../test/helpers/sandbox.js'
 import { safeReadCapped } from './safe-read.js'
 
-describe('safeReadCapped', () => {
-  it('returns absent for a non-existent path', async () => {
-    const dir = await tempDir()
+const it = baseTest.extend('dir', ({}, { onCleanup }) =>
+  makeSandboxDir(onCleanup),
+)
 
+describe('safeReadCapped', () => {
+  it('returns absent for a non-existent path', async ({ dir }) => {
     const result = await safeReadCapped(path.join(dir, 'nope.txt'))
 
     expect(result).toEqual({ kind: 'absent' })
   })
 
-  it('returns present with the file content for an existing readable file', async () => {
-    const dir = await tempDir()
+  it('returns present with the file content for an existing readable file', async ({
+    dir,
+  }) => {
     const file = path.join(dir, 'hello.txt')
     await writeFile(file, 'hello world')
 
@@ -25,8 +28,9 @@ describe('safeReadCapped', () => {
     expect(result).toEqual({ kind: 'present', content: 'hello world' })
   })
 
-  it('returns unknown when the final path component is a symlink (O_NOFOLLOW refuses the open)', async () => {
-    const dir = await tempDir()
+  it('returns unknown when the final path component is a symlink (O_NOFOLLOW refuses the open)', async ({
+    dir,
+  }) => {
     const real = path.join(dir, 'real.txt')
     const link = path.join(dir, 'link.txt')
     await writeFile(real, 'sensitive')
@@ -37,8 +41,9 @@ describe('safeReadCapped', () => {
     expect(result).toEqual({ kind: 'unknown' })
   })
 
-  it('returns unknown when the file exceeds the maxBytes cap', async () => {
-    const dir = await tempDir()
+  it('returns unknown when the file exceeds the maxBytes cap', async ({
+    dir,
+  }) => {
     const file = path.join(dir, 'big.txt')
     await writeFile(file, 'x'.repeat(200))
 
@@ -47,11 +52,3 @@ describe('safeReadCapped', () => {
     expect(result).toEqual({ kind: 'unknown' })
   })
 })
-
-async function tempDir(): Promise<string> {
-  const dir = await mkdtemp(path.join(tmpdir(), 'safe-read-'))
-  onTestFinished(async () => {
-    await rm(dir, { recursive: true, force: true })
-  })
-  return dir
-}
