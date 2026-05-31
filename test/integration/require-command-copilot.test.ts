@@ -8,8 +8,8 @@ import { requireCommand } from '../../src/rules/require-command.js'
 import {
   decodeResponse,
   type DecodedResponse,
-} from './helpers/decode-response.js'
-import { makeSandboxDir } from './helpers/sandbox.js'
+} from '../helpers/decode-response.js'
+import { makeSandboxDir } from '../helpers/sandbox.js'
 
 const SESSION_ID = 'integration-require-command-copilot'
 

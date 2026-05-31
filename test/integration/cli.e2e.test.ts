@@ -5,10 +5,10 @@ import path from 'node:path'
 import { describe, it, expect } from 'vitest'
 
 import type { Vendor } from '../../src/cli.js'
-import { decodeResponse } from './helpers/decode-response.js'
-import { runBin } from './helpers/run-bin.js'
-import { createSandbox } from './helpers/sandbox.js'
-import { createWriteAction } from './helpers/write-actions.js'
+import { decodeResponse } from '../helpers/decode-response.js'
+import { runBin } from '../helpers/run-bin.js'
+import { createSandbox } from '../helpers/sandbox.js'
+import { createWriteAction } from '../helpers/write-actions.js'
 
 const CONFIG_FIXTURE = 'test/fixtures/configs/kebab-only.config.ts'
 

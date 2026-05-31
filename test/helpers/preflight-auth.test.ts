@@ -1,6 +1,6 @@
 import { describe, expect, it, onTestFinished, type TestContext } from 'vitest'
 
-import type { Agent } from '../../../src/types.js'
+import type { Agent } from '../../src/types.js'
 import { preflightAuth, skipIfUnauthed } from './preflight-auth.js'
 
 describe('preflightAuth', () => {

@@ -8,8 +8,8 @@ import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
 import { claudeCode } from '../../src/vendors/claude-code/agent.js'
-import { preflightAuth, skipIfUnauthed } from './helpers/preflight-auth.js'
-import { makeSandboxDir } from './helpers/sandbox.js'
+import { preflightAuth, skipIfUnauthed } from '../helpers/preflight-auth.js'
+import { makeSandboxDir } from '../helpers/sandbox.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
@@ -18,7 +18,7 @@ import {
   OVER_IMPL,
   PLUS_ONE_TEST,
   PLUS_TWO_TESTS,
-} from './helpers/tdd-fixtures.js'
+} from '../helpers/tdd-fixtures.js'
 
 const T = {
   clean: 'test/fixtures/transcripts/tdd-clean.jsonl',

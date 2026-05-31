@@ -1,6 +1,6 @@
 import type { TestContext } from 'vitest'
 
-import type { Agent } from '../../../src/types.js'
+import type { Agent } from '../../src/types.js'
 import { isVendorAuthFailure } from './auth-patterns.js'
 
 export type PreflightResult = { ok: true } | { ok: false; reason: string }

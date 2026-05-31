@@ -5,10 +5,10 @@ import type { Vendor } from '../../src/cli.js'
 import {
   decodeResponse,
   type DecodedResponse,
-} from './helpers/decode-response.js'
-import { runBin } from './helpers/run-bin.js'
-import { createSandbox } from './helpers/sandbox.js'
-import { createWriteAction } from './helpers/write-actions.js'
+} from '../helpers/decode-response.js'
+import { runBin } from '../helpers/run-bin.js'
+import { createSandbox } from '../helpers/sandbox.js'
+import { createWriteAction } from '../helpers/write-actions.js'
 
 const CONSOLE_LOG_CONTENT = "console.log('fetch failed', err)"
 const CONSOLE_RULE_REASON = 'No console.* in TypeScript source'

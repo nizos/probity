@@ -1,8 +1,8 @@
-import type { Vendor } from '../../../src/cli.js'
-import { parseAs } from '../../../src/utils/parse-as.js'
-import type { ResponseShape as ClaudeCodeResponse } from '../../../src/vendors/claude-code/adapter.js'
-import type { ResponseShape as CodexResponse } from '../../../src/vendors/codex/adapter.js'
-import type { ResponseShape as CopilotResponse } from '../../../src/vendors/github-copilot/adapter.js'
+import type { Vendor } from '../../src/cli.js'
+import { parseAs } from '../../src/utils/parse-as.js'
+import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
+import type { ResponseShape as CodexResponse } from '../../src/vendors/codex/adapter.js'
+import type { ResponseShape as CopilotResponse } from '../../src/vendors/github-copilot/adapter.js'
 
 export type DecodedResponse = { decision: 'allow' | 'deny'; reason?: string }
 

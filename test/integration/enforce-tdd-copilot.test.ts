@@ -12,15 +12,15 @@ import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import { githubCopilot } from '../../src/vendors/github-copilot/agent.js'
-import { preflightAuth, skipIfUnauthed } from './helpers/preflight-auth.js'
-import { makeSandboxDir } from './helpers/sandbox.js'
+import { preflightAuth, skipIfUnauthed } from '../helpers/preflight-auth.js'
+import { makeSandboxDir } from '../helpers/sandbox.js'
 import {
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
   OVER_IMPL,
   PLUS_ONE_TEST,
   PLUS_TWO_TESTS,
-} from './helpers/tdd-fixtures.js'
+} from '../helpers/tdd-fixtures.js'
 
 const T = {
   clean: 'test/fixtures/transcripts/copilot-tdd-clean.jsonl',

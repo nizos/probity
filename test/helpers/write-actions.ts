@@ -1,8 +1,8 @@
-import type { Vendor } from '../../../src/cli.js'
-import type { WriteInput as ClaudeCodeWriteInput } from '../../../src/vendors/claude-code/adapter.js'
-import type { WriteInput as CodexWriteInput } from '../../../src/vendors/codex/adapter.js'
-import type { WriteInput as CopilotChatWriteInput } from '../../../src/vendors/github-copilot-chat/adapter.js'
-import type { WriteInput as CopilotWriteInput } from '../../../src/vendors/github-copilot/adapter.js'
+import type { Vendor } from '../../src/cli.js'
+import type { WriteInput as ClaudeCodeWriteInput } from '../../src/vendors/claude-code/adapter.js'
+import type { WriteInput as CodexWriteInput } from '../../src/vendors/codex/adapter.js'
+import type { WriteInput as CopilotChatWriteInput } from '../../src/vendors/github-copilot-chat/adapter.js'
+import type { WriteInput as CopilotWriteInput } from '../../src/vendors/github-copilot/adapter.js'
 
 // Stub values used to satisfy each vendor's required hook-payload
 // fields. The bin reads them but doesn't gate on them; the exact
