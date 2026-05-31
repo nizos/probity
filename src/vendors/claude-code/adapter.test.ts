@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { describe, it, expect, onTestFinished } from 'vitest'
+import { describe, expect, test as baseTest } from 'vitest'
 
+import { makeSandboxDir } from '../../../test/helpers/sandbox.js'
 import type { Action } from '../../types.js'
 import { parseAs } from '../../utils/parse-as.js'
 import type { ParseActionResult } from '../adapter.js'
@@ -25,6 +25,14 @@ type Payload = {
     new_string?: string
   }
 }
+
+const it = baseTest
+  .extend('dir', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('makeFile', ({ dir }) => async (content: string, name = 'foo.ts') => {
+    const filePath = path.join(dir, name)
+    await writeFile(filePath, content)
+    return filePath
+  })
 
 describe('claude-code adapter', () => {
   it('parseAction returns an ok result with the typed action for a valid payload', async () => {
@@ -79,13 +87,11 @@ describe('claude-code adapter', () => {
     expect(action).toMatchObject({ command: payload.tool_input.command })
   })
 
-  it('Edit action carries the full post-edit file content (replace old_string with new_string)', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'edit-content-'))
-    onTestFinished(async () => {
-      await rm(dir, { recursive: true, force: true })
-    })
-    const filePath = path.join(dir, 'foo.ts')
-    await writeFile(filePath, 'before\nMARKER\nafter\n')
+  it('Edit action carries the full post-edit file content (replace old_string with new_string)', async ({
+    dir,
+    makeFile,
+  }) => {
+    const filePath = await makeFile('before\nMARKER\nafter\n')
 
     const result = await parseAction({
       cwd: dir,
@@ -107,13 +113,13 @@ describe('claude-code adapter', () => {
     })
   })
 
-  it('Edit succeeds when the on-disk file is CRLF and the agent sent old_string as LF (Windows-typical)', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'edit-crlf-'))
-    onTestFinished(async () => {
-      await rm(dir, { recursive: true, force: true })
-    })
-    const filePath = path.join(dir, 'foo.ts')
-    await writeFile(filePath, ['alpha', 'MARKER', 'omega', ''].join('\r\n'))
+  it('Edit succeeds when the on-disk file is CRLF and the agent sent old_string as LF (Windows-typical)', async ({
+    dir,
+    makeFile,
+  }) => {
+    const filePath = await makeFile(
+      ['alpha', 'MARKER', 'omega', ''].join('\r\n'),
+    )
 
     const result = await parseAction({
       cwd: dir,
@@ -128,13 +134,11 @@ describe('claude-code adapter', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('Edit honors replace_all=true when old_string occurs more than once', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'edit-replace-all-'))
-    onTestFinished(async () => {
-      await rm(dir, { recursive: true, force: true })
-    })
-    const filePath = path.join(dir, 'foo.ts')
-    await writeFile(filePath, 'oldName(); oldName();\n')
+  it('Edit honors replace_all=true when old_string occurs more than once', async ({
+    dir,
+    makeFile,
+  }) => {
+    const filePath = await makeFile('oldName(); oldName();\n')
 
     const result = await parseAction({
       cwd: dir,
@@ -157,13 +161,11 @@ describe('claude-code adapter', () => {
     })
   })
 
-  it('Edit fails closed when old_string is not present in the file (no silent no-op)', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'edit-miss-'))
-    onTestFinished(async () => {
-      await rm(dir, { recursive: true, force: true })
-    })
-    const filePath = path.join(dir, 'foo.ts')
-    await writeFile(filePath, 'a fresh file with no marker in it\n')
+  it('Edit fails closed when old_string is not present in the file (no silent no-op)', async ({
+    dir,
+    makeFile,
+  }) => {
+    const filePath = await makeFile('a fresh file with no marker in it\n')
 
     const result = await parseAction({
       cwd: dir,
@@ -180,13 +182,14 @@ describe('claude-code adapter', () => {
     expect(result.reason).toMatch(/not found|MARKER_THAT_IS_ABSENT/)
   })
 
-  it('extracts the file path from an Edit payload as an absolute POSIX path', async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'edit-path-'))
-    onTestFinished(async () => {
-      await rm(dir, { recursive: true, force: true })
-    })
-    const filePath = path.join(dir, 'README.md')
-    await writeFile(filePath, 'Process discipline for AI coding agents.\n')
+  it('extracts the file path from an Edit payload as an absolute POSIX path', async ({
+    dir,
+    makeFile,
+  }) => {
+    const filePath = await makeFile(
+      'Process discipline for AI coding agents.\n',
+      'README.md',
+    )
 
     const action = ok(
       await parseAction({
