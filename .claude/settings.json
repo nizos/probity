@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx @nizos/probity --agent claude-code --debug ${CLAUDE_PROJECT_DIR}/.claude/probity.log"
+            "command": "npx @nizos/probity --agent claude-code --debug ${CLAUDE_PROJECT_DIR}/.claude/probity.jsonl"
           }
         ]
       }
