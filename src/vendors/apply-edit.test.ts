@@ -1,14 +1,24 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { describe, it, expect, onTestFinished } from 'vitest'
+import { describe, expect, test as baseTest } from 'vitest'
 
+import { makeSandboxDir } from '../../test/helpers/sandbox.js'
 import { applyEdit } from './apply-edit.js'
 
+const it = baseTest
+  .extend('dir', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('makeFile', ({ dir }) => async (content: string) => {
+    const filePath = path.join(dir, 'foo.ts')
+    await writeFile(filePath, content)
+    return filePath
+  })
+
 describe('applyEdit', () => {
-  it('returns the post-edit content when oldString appears exactly once', async () => {
-    const filePath = await setupFile('before\nMARKER\nafter\n')
+  it('returns the post-edit content when oldString appears exactly once', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('before\nMARKER\nafter\n')
 
     const result = await applyEdit({
       filePath,
@@ -19,8 +29,10 @@ describe('applyEdit', () => {
     expect(result).toEqual({ ok: true, content: 'before\nREPLACED\nafter\n' })
   })
 
-  it('fails closed when oldString does not appear in the file (no silent no-op)', async () => {
-    const filePath = await setupFile('a fresh file with no marker in it\n')
+  it('fails closed when oldString does not appear in the file (no silent no-op)', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('a fresh file with no marker in it\n')
 
     const result = await applyEdit({
       filePath,
@@ -33,8 +45,10 @@ describe('applyEdit', () => {
     expect(result.reason).toMatch(/not found|no match|MARKER/i)
   })
 
-  it('fails closed when oldString matches more than once and replaceAll is false (mirrors vendor uniqueness contract)', async () => {
-    const filePath = await setupFile('one MARKER\ntwo MARKER\nthree MARKER\n')
+  it('fails closed when oldString matches more than once and replaceAll is false (mirrors vendor uniqueness contract)', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('one MARKER\ntwo MARKER\nthree MARKER\n')
 
     const result = await applyEdit({
       filePath,
@@ -47,8 +61,10 @@ describe('applyEdit', () => {
     expect(result.reason).toMatch(/unique|multiple|3/i)
   })
 
-  it('replaces every occurrence of oldString when replaceAll is true', async () => {
-    const filePath = await setupFile('one MARKER\ntwo MARKER\nthree MARKER\n')
+  it('replaces every occurrence of oldString when replaceAll is true', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('one MARKER\ntwo MARKER\nthree MARKER\n')
 
     const result = await applyEdit({
       filePath,
@@ -63,8 +79,10 @@ describe('applyEdit', () => {
     })
   })
 
-  it('matches across CRLF/LF line-ending mismatch (file has CRLF on disk, oldString sent as LF)', async () => {
-    const filePath = await setupFile('first\r\nMARKER\r\nlast\r\n')
+  it('matches across CRLF/LF line-ending mismatch (file has CRLF on disk, oldString sent as LF)', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('first\r\nMARKER\r\nlast\r\n')
 
     const result = await applyEdit({
       filePath,
@@ -78,8 +96,10 @@ describe('applyEdit', () => {
     })
   })
 
-  it('matches across CRLF/LF line-ending mismatch when oldString carries CRLF and the file is LF-only', async () => {
-    const filePath = await setupFile('first\nMARKER\nlast\n')
+  it('matches across CRLF/LF line-ending mismatch when oldString carries CRLF and the file is LF-only', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('first\nMARKER\nlast\n')
 
     const result = await applyEdit({
       filePath,
@@ -105,11 +125,3 @@ describe('applyEdit', () => {
     expect(result.reason).toMatch(/not.*read|missing|ENOENT/i)
   })
 })
-
-async function setupFile(content: string): Promise<string> {
-  const dir = await mkdtemp(path.join(tmpdir(), 'apply-edit-'))
-  onTestFinished(() => rm(dir, { recursive: true, force: true }))
-  const filePath = path.join(dir, 'foo.ts')
-  await writeFile(filePath, content)
-  return filePath
-}
