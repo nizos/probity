@@ -92,6 +92,79 @@ export function add(a: number, b: number): number {
 `
 
 /**
+ * A test suite mid-migration from a per-test `setupFile` helper to the
+ * shared `makeFile` fixture. The imports `setupFile` relied on are gone,
+ * so it is dead code referencing undefined identifiers.
+ * {@link DEAD_HELPER_STILL_CALLED} is the before state (the helper is
+ * still called); {@link DEAD_HELPER_CALLER_MIGRATED} is the pending write
+ * that migrates the only caller, leaving the dead helper orphaned. One
+ * behavior-preserving refactor step through a transient broken state.
+ */
+export const DEAD_HELPER_STILL_CALLED = `import { writeFile } from 'node:fs/promises'
+import path from 'node:path'
+
+import { describe, expect, test as baseTest } from 'vitest'
+
+import { makeSandboxDir } from '../../../test/helpers/sandbox.js'
+import { parseAction } from './adapter.js'
+
+const it = baseTest
+  .extend('dir', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('makeFile', ({ dir }) => async (content: string) => {
+    const filePath = path.join(dir, 'foo.ts')
+    await writeFile(filePath, content)
+    return filePath
+  })
+
+describe('adapter edits', () => {
+  it('replaces the matched marker', async () => {
+    const filePath = await setupFile('before\\nMARKER\\nafter\\n')
+    expect((await parseAction(filePath)).ok).toBe(true)
+  })
+})
+
+async function setupFile(content: string): Promise<string> {
+  const dir = await mkdtemp(path.join(tmpdir(), 'copilot-edit-'))
+  onTestFinished(() => rm(dir, { recursive: true, force: true }))
+  const filePath = path.join(dir, 'foo.ts')
+  await writeFile(filePath, content)
+  return filePath
+}
+`
+
+export const DEAD_HELPER_CALLER_MIGRATED = `import { writeFile } from 'node:fs/promises'
+import path from 'node:path'
+
+import { describe, expect, test as baseTest } from 'vitest'
+
+import { makeSandboxDir } from '../../../test/helpers/sandbox.js'
+import { parseAction } from './adapter.js'
+
+const it = baseTest
+  .extend('dir', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('makeFile', ({ dir }) => async (content: string) => {
+    const filePath = path.join(dir, 'foo.ts')
+    await writeFile(filePath, content)
+    return filePath
+  })
+
+describe('adapter edits', () => {
+  it('replaces the matched marker', async ({ makeFile }) => {
+    const filePath = await makeFile('before\\nMARKER\\nafter\\n')
+    expect((await parseAction(filePath)).ok).toBe(true)
+  })
+})
+
+async function setupFile(content: string): Promise<string> {
+  const dir = await mkdtemp(path.join(tmpdir(), 'copilot-edit-'))
+  onTestFinished(() => rm(dir, { recursive: true, force: true }))
+  const filePath = path.join(dir, 'foo.ts')
+  await writeFile(filePath, content)
+  return filePath
+}
+`
+
+/**
  * "Looks like a test file" heuristic. Used by setups to place the
  * pending write under target.test.ts vs target.ts so the rule's
  * "is this a test or impl?" classifier sees the expected name.

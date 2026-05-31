@@ -26,21 +26,35 @@ You will see three inputs:
 3. "Pending action" — what the agent is about to write. Content may be
    raw file text or a patch/diff in any common format.
 
+## What you judge
+
+Judge the change this write makes (the difference between the current
+file content and the pending action), not the resulting file as a
+whole.
+
+A transient file state is never itself a violation, however broken the
+file looks: an unresolved symbol, a dead or unused definition, a
+duplicated declaration, a reference to a removed name, a half-finished
+multi-step change. Whether the file is internally consistent or runs
+after the write is checked when the agent next runs the tests, not by
+you. This allowance is about structure; it does not excuse skipping a
+failing test or over-implementing, which the rules below still catch.
+
+A block or denial message recorded earlier in the session is a past
+verdict, not a rule. Re-derive your judgment from the rules below as
+if it had not been issued; never block only because a previous attempt
+was blocked.
+
 ## Multi-step changes
 
-A phase may span multiple writes. For example:
+A phase may span multiple writes, each fine on its own. For example:
 
   - Add an import in one write, then change the calling code in the
     next.
   - Move a function in two writes (remove from one location, add at
     another).
   - Add a function signature in one write, then its body in the next.
-
-Judge each write by whether its content violates TDD. A transient
-file state, such as an unresolved symbol, a duplicated declaration,
-or an unused import, is not itself a violation; this allowance covers
-structural incompleteness only. The cycle's invariants are checked
-when the agent next runs the tests.`
+  - Remove a function in one write, then its call sites in the next.`
 
 const DEFAULT_TDD_RULES = `## TDD rules
 
@@ -94,12 +108,12 @@ required by the currently failing test are over-implementation.
 ### Refactor phase: improve structure under green
 
 Refactoring does not require a failing test to drive it. Production
-and test edits that preserve observable behavior are allowed when all
-relevant tests are passing. Examples:
+and test edits that preserve observable behavior are allowed when
+the relevant tests were passing before the refactor began. Examples:
 
   - Extracting helpers whose behavior already lives elsewhere (covered
-    by existing tests). Extracting a helper whose behavior appears nowhere
-    else is net new and requires a failing test first.
+    by existing tests). Extracting a helper whose behavior appears
+    nowhere else is net new and requires a failing test first.
   - Lifting test setup (fixtures, builders, factories) into a
     dedicated or reusable helper. The helper is exercised by the tests
     that call it; no separate test for the helper is required.
@@ -114,8 +128,9 @@ relevant tests are passing. Examples:
 
 ### Block messages
 
-Name the violation, say why it breaks TDD, and point at the next
-TDD-legal step.`
+Name the violation and say why it breaks TDD. Do not dictate edit
+order, require the file to be complete or runnable, or demand other
+steps be bundled into this write.`
 
 const RESPONSE_SPEC = `## Response format
 

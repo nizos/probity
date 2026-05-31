@@ -11,6 +11,8 @@ import { claudeCode } from '../../src/vendors/claude-code/agent.js'
 import { preflightAuth, skipIfUnauthed } from '../helpers/preflight-auth.js'
 import { makeSandboxDir } from '../helpers/sandbox.js'
 import {
+  DEAD_HELPER_CALLER_MIGRATED,
+  DEAD_HELPER_STILL_CALLED,
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
   MINIMAL_IMPL_PLUS_UNUSED_IMPORT,
@@ -27,6 +29,7 @@ const T = {
   cycleCompleted: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
   noisyBuriedFailure:
     'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
+  priorBlock: 'test/fixtures/transcripts/tdd-prior-block-not-in-rules.jsonl',
 }
 
 type ScenarioInput = {
@@ -123,6 +126,18 @@ describe.concurrent(
         seed: MINIMAL_IMPL,
         content: MINIMAL_IMPL_PLUS_UNUSED_IMPORT,
         transcript: T.cycleCompleted,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('does not anchor on an earlier block message that the rules do not support', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'target.test.ts',
+        seed: DEAD_HELPER_STILL_CALLED,
+        content: DEAD_HELPER_CALLER_MIGRATED,
+        transcript: T.priorBlock,
       })
       expect(result.decision, result.reason).toBe('allow')
     })
