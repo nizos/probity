@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import type { PreToolUseHookSpecificOutput } from '@anthropic-ai/claude-agent-sdk'
-import { describe, it, expect, onTestFinished } from 'vitest'
+import { describe, expect, test as baseTest } from 'vitest'
 
+import { makeSandboxDir } from '../../../test/helpers/sandbox.js'
 import type { Action } from '../../types.js'
 import { parseAs } from '../../utils/parse-as.js'
 import type { ParseActionResult } from '../adapter.js'
@@ -25,6 +25,14 @@ type Payload = {
 type DenyResponse = {
   hookSpecificOutput: PreToolUseHookSpecificOutput
 }
+
+const it = baseTest
+  .extend('dir', ({}, { onCleanup }) => makeSandboxDir(onCleanup))
+  .extend('makeFile', ({ dir }) => async (content: string) => {
+    const filePath = path.join(dir, 'foo.ts')
+    await writeFile(filePath, content)
+    return filePath
+  })
 
 describe('github-copilot-chat adapter', () => {
   it('parseAction returns an ok result with the typed action for a valid payload', async () => {
@@ -102,8 +110,10 @@ describe('github-copilot-chat adapter', () => {
     })
   })
 
-  it('replace_string_in_file action carries the full post-edit file content (replace oldString with newString)', async () => {
-    const filePath = await setupFile('before\nMARKER\nafter\n')
+  it('replace_string_in_file action carries the full post-edit file content (replace oldString with newString)', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('before\nMARKER\nafter\n')
 
     const result = await parseAction({
       cwd: '/workspaces/probity',
@@ -125,8 +135,10 @@ describe('github-copilot-chat adapter', () => {
     })
   })
 
-  it('replace_string_in_file fails closed when oldString is not present in the file (no silent no-op)', async () => {
-    const filePath = await setupFile('a fresh file with no marker in it\n')
+  it('replace_string_in_file fails closed when oldString is not present in the file (no silent no-op)', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('a fresh file with no marker in it\n')
 
     const result = await parseAction({
       cwd: '/workspaces/probity',
@@ -236,12 +248,4 @@ async function setup(fixtureName: string) {
 function ok(result: ParseActionResult): Action {
   if (!result.ok) throw new Error(`expected ok, got: ${result.reason}`)
   return result.action
-}
-
-async function setupFile(content: string): Promise<string> {
-  const dir = await mkdtemp(path.join(tmpdir(), 'copilot-chat-edit-'))
-  onTestFinished(() => rm(dir, { recursive: true, force: true }))
-  const filePath = path.join(dir, 'foo.ts')
-  await writeFile(filePath, content)
-  return filePath
 }
