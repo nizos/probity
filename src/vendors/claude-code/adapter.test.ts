@@ -298,6 +298,27 @@ describe('claude-code adapter', () => {
     })
   })
 
+  it('NotebookEdit with edit_mode delete carries empty content (no text is introduced)', async () => {
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      tool_name: 'NotebookEdit',
+      tool_input: {
+        notebook_path: '/workspaces/probity/analysis.ipynb',
+        new_source: 'leftover that the delete ignores',
+        edit_mode: 'delete',
+      },
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      action: {
+        kind: 'write',
+        path: '/workspaces/probity/analysis.ipynb',
+        content: '',
+      },
+    })
+  })
+
   it('passes through an unsupported tool_name as a no-op so unknown tools are not blocked', async () => {
     const action = ok(
       await parseAction({
