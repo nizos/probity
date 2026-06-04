@@ -19,7 +19,7 @@ Two commands wire probity into Claude Code's hook system, no manual config edit:
 /plugin install probity@probity
 ```
 
-The plugin ships the `PreToolUse` hook with the matcher `Bash|Write|Edit`, which covers commands and file modifications.
+The plugin ships the `PreToolUse` hook with the matcher `Bash|Write|Edit|NotebookEdit`, which covers commands and file modifications.
 
 ### Manual install
 
@@ -30,7 +30,7 @@ If you'd rather wire the hook yourself, add a `PreToolUse` entry to `.claude/set
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit",
+        "matcher": "Bash|Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -43,7 +43,7 @@ If you'd rather wire the hook yourself, add a `PreToolUse` entry to `.claude/set
 }
 ```
 
-The matcher controls which tools fire the hook. `Bash|Write|Edit` covers commands and file modifications.
+The matcher controls which tools fire the hook. `Bash|Write|Edit|NotebookEdit` covers commands and file modifications.
 
 Further reading: [Claude Code's hooks documentation](https://code.claude.com/docs/en/hooks).
 
