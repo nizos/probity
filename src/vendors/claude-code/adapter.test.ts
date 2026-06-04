@@ -276,11 +276,33 @@ describe('claude-code adapter', () => {
     expect(result.ok).toBe(false)
   })
 
+  it('NotebookEdit produces a write action carrying the cell source as content', async () => {
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      tool_name: 'NotebookEdit',
+      tool_input: {
+        notebook_path: '/workspaces/probity/analysis.ipynb',
+        new_source: 'print("hello")',
+        cell_type: 'code',
+        edit_mode: 'replace',
+      },
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      action: {
+        kind: 'write',
+        path: '/workspaces/probity/analysis.ipynb',
+        content: 'print("hello")',
+      },
+    })
+  })
+
   it('passes through an unsupported tool_name as a no-op so unknown tools are not blocked', async () => {
     const action = ok(
       await parseAction({
-        tool_name: 'MultiEdit',
-        tool_input: { file_path: 'x', edits: [] },
+        tool_name: 'Grep',
+        tool_input: { pattern: 'TODO' },
       }),
     )
 

@@ -48,6 +48,22 @@ const writeSchema = z.object({
  */
 export type WriteInput = z.input<typeof writeSchema>
 
+/**
+ * NotebookEdit replaces, inserts, or deletes one cell of a `.ipynb`.
+ * We surface it as a write whose content is the cell's `new_source` —
+ * the text the agent is adding — so content rules and enforceTdd see
+ * exactly what's being introduced. (Reconstructing the whole notebook
+ * JSON would be faithful to disk but adds nothing the rules can use.)
+ */
+const notebookEditSchema = z.object({
+  tool_name: z.literal('NotebookEdit'),
+  tool_input: z.object({
+    notebook_path: z.string(),
+    new_source: z.string(),
+  }),
+  cwd: z.string().min(1),
+})
+
 const writeToolsSchema = z.discriminatedUnion('tool_name', [
   bashSchema.transform(
     (d): Action => ({ kind: 'command', command: d.tool_input.command }),
@@ -73,17 +89,29 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
       content: d.tool_input.content,
     }),
   ),
+  notebookEditSchema.transform(
+    (d): Action => ({
+      kind: 'write',
+      path: posixAbsolute(d.cwd, d.tool_input.notebook_path),
+      content: d.tool_input.new_source,
+    }),
+  ),
 ])
 
 /**
  * Anything Claude Code fires the hook for that we don't explicitly
- * model (Read, Grep, MultiEdit, NotebookEdit, future tools) becomes a
- * no-op command: no rule matches it, the engine returns allow.
- * `passthroughFor` excludes the known tool names so a malformed
- * Bash / Edit / Write payload still surfaces as a parse error rather
- * than silently passing through.
+ * model (Read, Grep, future tools) becomes a no-op command: no rule
+ * matches it, the engine returns allow. `passthroughFor` excludes the
+ * known tool names so a malformed Bash / Edit / Write / NotebookEdit
+ * payload still surfaces as a parse error rather than silently passing
+ * through.
  */
-const passthroughSchema = passthroughFor('tool_name', ['Bash', 'Edit', 'Write'])
+const passthroughSchema = passthroughFor('tool_name', [
+  'Bash',
+  'Edit',
+  'Write',
+  'NotebookEdit',
+])
 
 export const parseAction = fromSchema(
   z.union([writeToolsSchema, passthroughSchema]),
