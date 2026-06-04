@@ -50,16 +50,24 @@ export type WriteInput = z.input<typeof writeSchema>
 
 /**
  * NotebookEdit replaces, inserts, or deletes one cell of a `.ipynb`.
- * We surface it as a write whose content is the cell's `new_source` —
- * the text the agent is adding — so content rules and enforceTdd see
- * exactly what's being introduced. (Reconstructing the whole notebook
- * JSON would be faithful to disk but adds nothing the rules can use.)
+ * We surface it as a write whose content is the cell text being
+ * introduced: `new_source` for replace/insert, and empty for a delete
+ * (which introduces nothing). This is exact for content rules — they
+ * see precisely the text being added. enforceTdd is given the added
+ * cell rather than a whole-file diff: its `before` comes from reading
+ * the on-disk `.ipynb` (notebook JSON), so the comparison is cell vs.
+ * file rather than cell vs. cell. That is a known limitation for the
+ * niche of TDD-on-notebooks, and still strictly better than the prior
+ * behavior, where NotebookEdit bypassed every rule. Faithfully
+ * reconstructing the notebook JSON was rejected: it is fragile and
+ * buys nothing for the common content-rule case.
  */
 const notebookEditSchema = z.object({
   tool_name: z.literal('NotebookEdit'),
   tool_input: z.object({
     notebook_path: z.string(),
     new_source: z.string(),
+    edit_mode: z.enum(['replace', 'insert', 'delete']).optional(),
   }),
   cwd: z.string().min(1),
 })
@@ -93,7 +101,8 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
     (d): Action => ({
       kind: 'write',
       path: posixAbsolute(d.cwd, d.tool_input.notebook_path),
-      content: d.tool_input.new_source,
+      content:
+        d.tool_input.edit_mode === 'delete' ? '' : d.tool_input.new_source,
     }),
   ),
 ])
