@@ -235,6 +235,37 @@ describe('install modes (claude-code)', () => {
   })
 })
 
+describe('NotebookEdit writes (claude-code)', () => {
+  it('blocks a forbidden cell so content rules fire on notebook writes', async () => {
+    const sandbox = await createSandbox({
+      'probity.config.ts': createProbityConfig({ glob: '**/*.ipynb' }),
+      'analysis.ipynb': '{"cells":[]}',
+    })
+    const payload = {
+      session_id: 'scenario',
+      transcript_path: '/tmp/transcript.jsonl',
+      cwd: sandbox.path,
+      hook_event_name: 'PreToolUse',
+      tool_name: 'NotebookEdit',
+      tool_use_id: 'tu_scenario',
+      tool_input: {
+        notebook_path: sandbox.getPath('analysis.ipynb'),
+        new_source: CONSOLE_LOG_CONTENT,
+        edit_mode: 'replace',
+      },
+    }
+    const { stdout } = await runBin({
+      args: ['--agent', 'claude-code'],
+      payload: JSON.stringify(payload),
+      cwd: sandbox.path,
+    })
+
+    const result = decodeResponse('claude-code', stdout)
+    expect(result.decision).toBe('deny')
+    expect(result.reason).toContain(CONSOLE_RULE_REASON)
+  })
+})
+
 type Scenario = {
   glob: string
   agentCwdAt: string
