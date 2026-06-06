@@ -1,6 +1,6 @@
 import type { Options as ClaudeQueryOptions } from '@anthropic-ai/claude-agent-sdk'
 
-import type { Agent, AgentMeta } from '../../types.js'
+import type { Agent } from '../../types.js'
 import { toVerdict } from '../to-verdict.js'
 
 type ClaudeMessage = { type: string; [k: string]: unknown }
@@ -28,7 +28,7 @@ async function loadDefaultQueryFn(): Promise<QueryFn> {
 async function getResult(
   queryFn: QueryFn,
   prompt: string,
-): Promise<{ text: string; meta?: AgentMeta }> {
+): Promise<{ text: string; meta?: ClaudeCodeMeta }> {
   for await (const message of queryFn({
     prompt,
     options: {
@@ -73,8 +73,16 @@ async function getResult(
   )
 }
 
-function extractMeta(message: ClaudeMessage): AgentMeta | undefined {
-  const meta: AgentMeta = {}
+type ClaudeCodeMeta = {
+  model?: string
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadInputTokens?: number
+  cacheCreationInputTokens?: number
+}
+
+function extractMeta(message: ClaudeMessage): ClaudeCodeMeta | undefined {
+  const meta: ClaudeCodeMeta = {}
   if (isObject(message.usage)) {
     const usage = message.usage
     if (typeof usage.input_tokens === 'number') {
@@ -83,8 +91,19 @@ function extractMeta(message: ClaudeMessage): AgentMeta | undefined {
     if (typeof usage.output_tokens === 'number') {
       meta.outputTokens = usage.output_tokens
     }
+    if (typeof usage.cache_read_input_tokens === 'number') {
+      meta.cacheReadInputTokens = usage.cache_read_input_tokens
+    }
+    if (typeof usage.cache_creation_input_tokens === 'number') {
+      meta.cacheCreationInputTokens = usage.cache_creation_input_tokens
+    }
   }
-  if (typeof message.model === 'string') meta.model = message.model
+  if (isObject(message.modelUsage)) {
+    // modelUsage is keyed by model name; a single-turn validation run
+    // has exactly one, so its first key is the model.
+    const [model] = Object.keys(message.modelUsage)
+    if (model) meta.model = model
+  }
   return Object.keys(meta).length > 0 ? meta : undefined
 }
 

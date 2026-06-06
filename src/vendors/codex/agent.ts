@@ -1,6 +1,6 @@
 import type { ThreadOptions } from '@openai/codex-sdk'
 
-import type { Agent, AgentMeta } from '../../types.js'
+import type { Agent } from '../../types.js'
 import { toVerdict } from '../to-verdict.js'
 
 type CodexLike = {
@@ -41,10 +41,15 @@ async function loadDefaultCodex(): Promise<CodexLike> {
   return new mod.Codex()
 }
 
+type CodexMeta = {
+  inputTokens?: number
+  outputTokens?: number
+}
+
 function buildMeta(
   usage: { input_tokens?: number; output_tokens?: number } | null | undefined,
-): AgentMeta | undefined {
-  const meta: AgentMeta = {}
+): CodexMeta | undefined {
+  const meta: CodexMeta = {}
   if (usage && typeof usage.input_tokens === 'number') {
     meta.inputTokens = usage.input_tokens
   }

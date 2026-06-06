@@ -74,8 +74,8 @@ export type TraceEntry =
 /**
  * A recorded AI validator invocation. `durationMs` is the wall-clock
  * measured by the observer at the call site; the embedded `verdict`
- * carries the call's kind, reason, and any vendor-normalized telemetry
- * the agent attached as `AgentMeta`.
+ * carries the call's kind, reason, and any vendor-defined telemetry
+ * the agent attached as `AgentTelemetry`.
  */
 export type AgentCall = {
   durationMs: number
@@ -83,27 +83,23 @@ export type AgentCall = {
 }
 
 /**
- * Vendor-normalized SDK telemetry attached to a Verdict. All fields
- * optional because not every SDK exposes every value (Copilot reports
- * less than Anthropic, for example). Token field names follow
- * Anthropic's convention (`inputTokens` / `outputTokens`); per-vendor
- * agents translate from their SDK's native names.
+ * Opaque, vendor-defined validator telemetry attached to a Verdict and
+ * surfaced on the operator's `--debug` trace. The domain does not
+ * interpret it: each vendor's agent populates its own shape (token
+ * counts, model, cache usage, and so on) from its SDK's native fields.
+ * Observability only; no rule or engine code reads it.
  */
-export type AgentMeta = {
-  model?: string
-  inputTokens?: number
-  outputTokens?: number
-}
+export type AgentTelemetry = Readonly<Record<string, string | number>>
 
 /**
- * What an AI validator returns. Optional `meta` carries vendor-normalized
+ * What an AI validator returns. Optional `meta` carries vendor-defined
  * telemetry the cli-side observer surfaces onto the trace; rules don't
  * forward it themselves.
  */
 export type Verdict = {
   kind: 'pass' | 'violation'
   reason: string
-  meta?: AgentMeta
+  meta?: AgentTelemetry
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { Agent, AgentMeta } from '../../types.js'
+import type { Agent } from '../../types.js'
 import { toVerdict } from '../to-verdict.js'
 
 type SessionConfig = {
@@ -52,7 +52,11 @@ export function githubCopilot(
   }
 }
 
-function buildMeta(outputTokens: number | undefined): AgentMeta | undefined {
+type CopilotMeta = {
+  outputTokens?: number
+}
+
+function buildMeta(outputTokens: number | undefined): CopilotMeta | undefined {
   if (typeof outputTokens !== 'number') return undefined
   return { outputTokens }
 }

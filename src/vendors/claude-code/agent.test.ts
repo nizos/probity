@@ -139,9 +139,13 @@ describe('claudeCode', () => {
     const client = claudeCode({
       queryFn: fakeQuery({
         result: '{"kind":"pass","reason":"ok"}',
-        usage: { input_tokens: 1024, output_tokens: 64 },
-        model: 'claude-opus-4-7',
-        duration_ms: 850,
+        usage: {
+          input_tokens: 1024,
+          output_tokens: 64,
+          cache_read_input_tokens: 8000,
+          cache_creation_input_tokens: 200,
+        },
+        modelUsage: { 'claude-opus-4-7': { inputTokens: 1024 } },
       }),
     })
 
@@ -151,6 +155,8 @@ describe('claudeCode', () => {
       model: 'claude-opus-4-7',
       inputTokens: 1024,
       outputTokens: 64,
+      cacheReadInputTokens: 8000,
+      cacheCreationInputTokens: 200,
     })
   })
 })
@@ -183,8 +189,13 @@ function captureQuery() {
 function fakeQuery(
   opts: {
     result?: unknown
-    usage?: { input_tokens?: number; output_tokens?: number }
-    model?: string
+    usage?: {
+      input_tokens?: number
+      output_tokens?: number
+      cache_read_input_tokens?: number
+      cache_creation_input_tokens?: number
+    }
+    modelUsage?: Record<string, unknown>
     duration_ms?: number
   } = {},
 ) {
@@ -195,7 +206,7 @@ function fakeQuery(
         subtype: 'success' as const,
         result: opts.result ?? '{"kind":"pass","reason":""}',
         ...(opts.usage && { usage: opts.usage }),
-        ...(opts.model !== undefined && { model: opts.model }),
+        ...(opts.modelUsage && { modelUsage: opts.modelUsage }),
         ...(opts.duration_ms !== undefined && {
           duration_ms: opts.duration_ms,
         }),

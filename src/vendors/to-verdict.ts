@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { AgentMeta, Verdict } from '../types.js'
+import type { AgentTelemetry, Verdict } from '../types.js'
 
 const VerdictSchema = z.object({
   kind: z.enum(['pass', 'violation']),
@@ -9,7 +9,7 @@ const VerdictSchema = z.object({
 
 /**
  * Turns a "give me a response from the validator" call into a Verdict.
- * The closure returns the SDK's text payload plus any AgentMeta the
+ * The closure returns the SDK's text payload plus any AgentTelemetry the
  * vendor extracted (model, tokens). The text is JSON-parsed (with
  * optional ```json fence stripping) and validated against the verdict
  * shape; meta forwards onto the returned Verdict regardless of
@@ -17,9 +17,9 @@ const VerdictSchema = z.object({
  * becomes a violation whose reason is the error message.
  */
 export async function toVerdict(
-  getResponse: () => Promise<{ text: string; meta?: AgentMeta }>,
+  getResponse: () => Promise<{ text: string; meta?: AgentTelemetry }>,
 ): Promise<Verdict> {
-  let response: { text: string; meta?: AgentMeta }
+  let response: { text: string; meta?: AgentTelemetry }
   try {
     response = await getResponse()
   } catch (error) {
