@@ -8,6 +8,12 @@ import type { Action } from '../../types.js'
  * everything else is an include. An all-negations list matches nothing
  * positively, so `**` is supplied as the default include when only
  * negations are given.
+ *
+ * `dot: true` so `*` / `**` traverse dot-prefixed segments: without it a
+ * `files`-scoped rule silently skips dotfiles (`.env`, `.github/**`,
+ * `.eslintrc.js`) — a fail-open where a write that should be checked
+ * slips through. picomatch applies the option to the `ignore` matcher
+ * too, so negations stay dot-aware.
  */
 export function buildMatcher(patterns: string[]): (path: string) => boolean {
   if (patterns.length === 0) return () => false
@@ -15,7 +21,10 @@ export function buildMatcher(patterns: string[]): (path: string) => boolean {
   const ignore = patterns
     .filter((p) => p.startsWith('!'))
     .map((p) => p.slice(1))
-  const matcher = picomatch(includes.length ? includes : '**', { ignore })
+  const matcher = picomatch(includes.length ? includes : '**', {
+    dot: true,
+    ignore,
+  })
   return (path) => matcher(path)
 }
 
