@@ -5,7 +5,7 @@ import type { Action } from '../types.js'
 import { fromSchema, passthroughFor } from './adapter.js'
 
 describe('fromSchema', () => {
-  it('wraps a Zod schema into a parseAction returning {ok: true, action} for valid input', async () => {
+  it('wraps a Zod schema into a parseAction returning {ok: true, actions: [action]} for valid input', async () => {
     const schema = z
       .object({ kind: z.literal('command'), command: z.string() })
       .transform((d): Action => ({ kind: 'command', command: d.command }))
@@ -14,7 +14,26 @@ describe('fromSchema', () => {
 
     expect(await parse({ kind: 'command', command: 'echo hi' })).toEqual({
       ok: true,
-      action: { kind: 'command', command: 'echo hi' },
+      actions: [{ kind: 'command', command: 'echo hi' }],
+    })
+  })
+
+  it('normalizes a schema that yields multiple actions into the actions array', async () => {
+    const schema = z
+      .object({ kind: z.literal('multi') })
+      .transform((): Action[] => [
+        { kind: 'command', command: 'a' },
+        { kind: 'command', command: 'b' },
+      ])
+
+    const parse = fromSchema(schema)
+
+    expect(await parse({ kind: 'multi' })).toEqual({
+      ok: true,
+      actions: [
+        { kind: 'command', command: 'a' },
+        { kind: 'command', command: 'b' },
+      ],
     })
   })
 

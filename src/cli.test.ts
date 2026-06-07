@@ -6,6 +6,7 @@ import { failClosedResponse, run, type RunResult, type Vendor } from './cli.js'
 import type { Config } from './config.js'
 import type { Agent, SessionEvent } from './types.js'
 import { enforceFilenameCasing } from './rules/enforce-filename-casing.js'
+import { forbidContentPattern } from './rules/forbid-content-pattern.js'
 import type { FileContent, Rule } from './rules/contract.js'
 import { parseAs } from './utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from './vendors/claude-code/adapter.js'
@@ -191,6 +192,74 @@ describe('cli', () => {
     const call = first.agentCalls?.[0]
     expect(call?.durationMs).toBeGreaterThanOrEqual(0)
     expect(call?.verdict).toEqual({ kind: 'pass', reason: 'ok', meta })
+  })
+
+  it('checks every file in a multi-file codex apply_patch (a later file cannot escape a path-scoped rule)', async () => {
+    const payload = JSON.stringify({
+      cwd: '/workspaces/probity',
+      tool_name: 'apply_patch',
+      tool_input: {
+        command:
+          '*** Begin Patch\n' +
+          '*** Add File: /workspaces/probity/src/ok.ts\n+fine\n' +
+          '*** Add File: /workspaces/probity/secret/leak.ts\n+FORBIDDEN\n' +
+          '*** End Patch\n',
+      },
+    })
+
+    const { response } = await setup({
+      vendor: 'codex',
+      payload,
+      config: {
+        rules: [
+          {
+            files: ['**/secret/**'],
+            rules: [
+              forbidContentPattern({ match: 'FORBIDDEN', reason: 'no leaks' }),
+            ],
+          },
+        ],
+        ai: stubAgent,
+      },
+    })
+    const parsed = parseAs<{ decision: string; reason: string }>(response)
+
+    expect(parsed.decision).toBe('block')
+    expect(parsed.reason).toMatch(/no leaks/)
+  })
+
+  it('scopes AI-call trace attribution to the action that made the call across a multi-file patch', async () => {
+    const agent: Agent = {
+      reason: () => Promise.resolve({ kind: 'pass', reason: 'ok' }),
+    }
+    const aiRule: Rule = async (_action, ctx) => {
+      await ctx?.agent?.reason('hi')
+      return { kind: 'pass' }
+    }
+    const payload = JSON.stringify({
+      cwd: '/workspaces/probity',
+      tool_name: 'apply_patch',
+      tool_input: {
+        command:
+          '*** Begin Patch\n' +
+          '*** Add File: src/f1.ts\n+a\n' +
+          '*** Add File: src/f2.ts\n+b\n' +
+          '*** End Patch\n',
+      },
+    })
+
+    const { trace } = await setup({
+      vendor: 'codex',
+      payload,
+      config: { rules: [aiRule], ai: agent },
+    })
+
+    const evaluated = trace.filter((t) => t.kind === 'rule-evaluated')
+    expect(evaluated).toHaveLength(2)
+    for (const entry of evaluated) {
+      if (entry.kind !== 'rule-evaluated') continue
+      expect(entry.agentCalls).toHaveLength(1)
+    }
   })
 
   it('returns a deny response when the adapter rejects the payload', async () => {
