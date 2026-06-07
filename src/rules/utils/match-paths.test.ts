@@ -44,10 +44,9 @@ describe('buildMatcher', () => {
     expect(buildMatcher(['**/*.md'])('.github/CONTRIBUTING.md')).toBe(true)
   })
 
-  it('applies dot-awareness to negations so a dotfile can be excluded', () => {
-    const matches = buildMatcher(['src/**', '!**/.env'])
-    expect(matches('src/app.ts')).toBe(true)
-    expect(matches('src/.env')).toBe(false)
+  it('applies dot-awareness to negations so a glob can exclude a dotfile', () => {
+    // Literal include so only the glob negation's dot-awareness decides.
+    expect(buildMatcher(['src/.env', '!src/*'])('src/.env')).toBe(false)
   })
 })
 
