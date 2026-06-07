@@ -38,6 +38,17 @@ describe('buildMatcher', () => {
     expect(matches('C:/proj/src/foo.ts')).toBe(true)
     expect(matches('C:/proj/lib/foo.ts')).toBe(false)
   })
+
+  it('matches dotfiles and dot-directories under a glob (fail-open guard)', () => {
+    expect(buildMatcher(['src/**'])('src/.eslintrc.js')).toBe(true)
+    expect(buildMatcher(['**/*.md'])('.github/CONTRIBUTING.md')).toBe(true)
+  })
+
+  it('applies dot-awareness to negations so a dotfile can be excluded', () => {
+    const matches = buildMatcher(['src/**', '!**/.env'])
+    expect(matches('src/app.ts')).toBe(true)
+    expect(matches('src/.env')).toBe(false)
+  })
 })
 
 describe('actionMatchesFilesScope', () => {
