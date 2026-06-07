@@ -55,17 +55,26 @@ async function dispatch(
   if (parsed.kind === 'invalid') {
     return respondParseFailed(entry, parsed.reason)
   }
-  const collector = createAgentCallCollector(agent)
-  const ctx = buildRuleContext(
-    parsed.rawHistory,
-    entry.toCanonical,
-    collector.agent,
-  )
-  const outcome = await evaluate(parsed.action, rules, ctx, collector.hooks)
-  return {
-    response: respond(entry, outcome.decision),
-    trace: collector.enrichTrace(outcome.trace),
+  // A payload can expand to several actions (e.g. a multi-file codex
+  // apply_patch). Evaluate each and short-circuit on the first block so
+  // no file in the batch escapes the rules. A fresh collector per action
+  // keeps AI-call attribution scoped to the action that made the call,
+  // rather than cross-crediting every action's trace entries.
+  const trace: TraceEntry[] = []
+  for (const action of parsed.actions) {
+    const collector = createAgentCallCollector(agent)
+    const ctx = buildRuleContext(
+      parsed.rawHistory,
+      entry.toCanonical,
+      collector.agent,
+    )
+    const outcome = await evaluate(action, rules, ctx, collector.hooks)
+    trace.push(...collector.enrichTrace(outcome.trace))
+    if (outcome.decision.kind === 'block') {
+      return { response: respond(entry, outcome.decision), trace }
+    }
   }
+  return { response: respond(entry, { kind: 'allow' }), trace }
 }
 
 /**
@@ -121,7 +130,7 @@ export function failClosedResponse(vendor: Vendor, error: unknown): string {
 type ParseResult =
   | {
       kind: 'ok'
-      action: Action
+      actions: readonly Action[]
       rawHistory: (() => Promise<RawSessionEvent[]>) | undefined
     }
   | { kind: 'invalid'; reason: string }
@@ -133,13 +142,13 @@ async function parsePayload(
   const parsed = tryParseJson(rawPayload)
   if (parsed.kind === 'fail') return invalid(parsed.reason)
 
-  const action = await entry.adapter.parseAction(parsed.value)
-  if (!action.ok) return invalid(action.reason)
+  const parsedAction = await entry.adapter.parseAction(parsed.value)
+  if (!parsedAction.ok) return invalid(parsedAction.reason)
 
   const sessionPath = entry.adapter.sessionPath?.(parsed.value)
   return {
     kind: 'ok',
-    action: action.action,
+    actions: parsedAction.actions,
     rawHistory: sessionPath
       ? () => entry.readTranscript(sessionPath)
       : undefined,

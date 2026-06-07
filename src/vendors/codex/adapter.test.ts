@@ -31,12 +31,14 @@ describe('codex adapter', () => {
 
     expect(result).toEqual({
       ok: true,
-      action: {
-        kind: 'write',
-        path: '/workspaces/probity/src/UpperCase.ts',
-        content:
-          '*** Begin Patch\n*** Add File: /workspaces/probity/src/UpperCase.ts\n+x\n*** End Patch\n',
-      },
+      actions: [
+        {
+          kind: 'write',
+          path: '/workspaces/probity/src/UpperCase.ts',
+          content:
+            '*** Add File: /workspaces/probity/src/UpperCase.ts\n+x\n*** End Patch\n',
+        },
+      ],
     })
   })
 
@@ -95,7 +97,7 @@ describe('codex adapter', () => {
     expect(action.kind).toBe('write')
     if (action.kind !== 'write') throw new Error('expected write')
     expect(action.path).toBe('/workspaces/probity/src/calculator.ts')
-    expect(action.content).toContain('*** Begin Patch')
+    expect(action.content).not.toContain('*** Begin Patch')
     expect(action.content).toContain('*** Add File:')
   })
 
@@ -115,6 +117,35 @@ describe('codex adapter', () => {
       kind: 'write',
       path: '/workspaces/probity/src/UpperCase.ts',
     })
+  })
+
+  it('emits one write action per file in a multi-file apply_patch (files 2..N must not be skipped)', async () => {
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      tool_name: 'apply_patch',
+      tool_input: {
+        command:
+          '*** Begin Patch\n' +
+          '*** Add File: src/a.ts\n+a\n' +
+          '*** Add File: src/secret/b.ts\n+b\n' +
+          '*** End Patch\n',
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.actions).toEqual([
+      {
+        kind: 'write',
+        path: '/workspaces/probity/src/a.ts',
+        content: '*** Add File: src/a.ts\n+a\n',
+      },
+      {
+        kind: 'write',
+        path: '/workspaces/probity/src/secret/b.ts',
+        content: '*** Add File: src/secret/b.ts\n+b\n*** End Patch\n',
+      },
+    ])
   })
 
   it('fails closed when an apply_patch payload omits cwd (vendors reliably emit it; absence is malformed)', async () => {
@@ -157,5 +188,8 @@ async function setup(fixtureName: string) {
 
 function ok(result: ParseActionResult): Action {
   if (!result.ok) throw new Error(`expected ok, got: ${result.reason}`)
-  return result.action
+  if (result.actions.length !== 1) {
+    throw new Error(`expected exactly one action, got ${result.actions.length}`)
+  }
+  return result.actions[0]!
 }
