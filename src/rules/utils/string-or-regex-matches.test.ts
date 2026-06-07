@@ -12,4 +12,14 @@ describe('stringOrRegexMatches', () => {
     expect(stringOrRegexMatches('rm -rf /', /rm\s+-rf/)).toBe(true)
     expect(stringOrRegexMatches('git rm file', /rm\s+-rf/)).toBe(false)
   })
+
+  it('matches a sticky regex anywhere in the haystack (fail-open guard)', () => {
+    expect(stringOrRegexMatches('  forbidden', /forbidden/y)).toBe(true)
+  })
+
+  it('is not stateful across calls with a global regex', () => {
+    const re = /x/g
+    expect(stringOrRegexMatches('axb', re)).toBe(true)
+    expect(stringOrRegexMatches('axb', re)).toBe(true)
+  })
 })
