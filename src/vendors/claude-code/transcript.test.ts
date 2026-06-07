@@ -15,6 +15,20 @@ describe('claude-code transcript', () => {
     })
   })
 
+  it('flattens an array-shaped tool_result into the action output (Claude Code ships text blocks, not only strings)', async () => {
+    const events = await readTranscript(
+      'test/fixtures/transcripts/tool-result-array-content.jsonl',
+    )
+
+    expect(events).toContainEqual({
+      kind: 'action',
+      tool: 'Bash',
+      input: { command: 'npm test' },
+      output: 'FAIL src/calc.test.ts\n1 failed',
+      toolUseId: 'tu_1',
+    })
+  })
+
   it('emits a prompt event for user text messages', async () => {
     const events = await readTranscript('test/fixtures/transcripts/basic.jsonl')
 
