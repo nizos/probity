@@ -50,9 +50,14 @@ export async function applyEdit(
       reason: `oldString matches ${occurrences} locations in ${filePath}; the Edit contract requires uniqueness unless replace_all is true.`,
     }
   }
+  // Insert newString via a replacer function so it lands verbatim: a
+  // string replacement would interpret $$, $&, $` and $' as special
+  // patterns, diverging from the vendor's literal edit and making the
+  // engine evaluate bytes the agent never wrote.
+  const replacer = () => newString
   const content = replaceAll
-    ? current.replaceAll(oldString, newString)
-    : current.replace(oldString, newString)
+    ? current.replaceAll(oldString, replacer)
+    : current.replace(oldString, replacer)
   return { ok: true, content }
 }
 

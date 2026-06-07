@@ -113,6 +113,44 @@ describe('applyEdit', () => {
     })
   })
 
+  it('inserts newString literally when it contains $ substitution patterns (faithful to the vendor literal edit)', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('before\nMARKER\nafter\n')
+
+    // The vendor (Claude Code) replaces oldString with newString verbatim.
+    // JS String.prototype.replace, given a string replacement, would treat
+    // $$, $&, $` and $' as special patterns and produce different bytes than
+    // what lands on disk — a fail-open where the engine evaluates content the
+    // agent never wrote. The reconstruction must match the real file exactly.
+    const newString = "x$$ $& $` $' y"
+    const result = await applyEdit({ filePath, oldString: 'MARKER', newString })
+
+    expect(result).toEqual({
+      ok: true,
+      content: `before\n${newString}\nafter\n`,
+    })
+  })
+
+  it('inserts newString literally under replaceAll when it contains $ patterns', async ({
+    makeFile,
+  }) => {
+    const filePath = await makeFile('one MARKER\ntwo MARKER\n')
+
+    const newString = 'cost $$5 for $&'
+    const result = await applyEdit({
+      filePath,
+      oldString: 'MARKER',
+      newString,
+      replaceAll: true,
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      content: `one ${newString}\ntwo ${newString}\n`,
+    })
+  })
+
   it('fails closed when the file does not exist (no silent fallback to newString)', async () => {
     const result = await applyEdit({
       filePath: '/tmp/probity-apply-edit-does-not-exist.ts',
