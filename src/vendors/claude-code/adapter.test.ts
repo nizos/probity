@@ -47,11 +47,13 @@ describe('claude-code adapter', () => {
 
     expect(result).toEqual({
       ok: true,
-      action: {
-        kind: 'write',
-        path: '/workspaces/probity/src/UpperCase.ts',
-        content: 'x',
-      },
+      actions: [
+        {
+          kind: 'write',
+          path: '/workspaces/probity/src/UpperCase.ts',
+          content: 'x',
+        },
+      ],
     })
   })
 
@@ -105,11 +107,13 @@ describe('claude-code adapter', () => {
 
     expect(result).toEqual({
       ok: true,
-      action: {
-        kind: 'write',
-        path: filePath,
-        content: 'before\nREPLACED\nafter\n',
-      },
+      actions: [
+        {
+          kind: 'write',
+          path: filePath,
+          content: 'before\nREPLACED\nafter\n',
+        },
+      ],
     })
   })
 
@@ -153,11 +157,13 @@ describe('claude-code adapter', () => {
 
     expect(result).toEqual({
       ok: true,
-      action: {
-        kind: 'write',
-        path: filePath,
-        content: 'newName(); newName();\n',
-      },
+      actions: [
+        {
+          kind: 'write',
+          path: filePath,
+          content: 'newName(); newName();\n',
+        },
+      ],
     })
   })
 
@@ -290,11 +296,13 @@ describe('claude-code adapter', () => {
 
     expect(result).toEqual({
       ok: true,
-      action: {
-        kind: 'write',
-        path: '/workspaces/probity/analysis.ipynb',
-        content: 'print("hello")',
-      },
+      actions: [
+        {
+          kind: 'write',
+          path: '/workspaces/probity/analysis.ipynb',
+          content: 'print("hello")',
+        },
+      ],
     })
   })
 
@@ -311,11 +319,13 @@ describe('claude-code adapter', () => {
 
     expect(result).toEqual({
       ok: true,
-      action: {
-        kind: 'write',
-        path: '/workspaces/probity/analysis.ipynb',
-        content: '',
-      },
+      actions: [
+        {
+          kind: 'write',
+          path: '/workspaces/probity/analysis.ipynb',
+          content: '',
+        },
+      ],
     })
   })
 
@@ -347,5 +357,8 @@ async function setup(fixtureName: string) {
 
 function ok(result: ParseActionResult): Action {
   if (!result.ok) throw new Error(`expected ok, got: ${result.reason}`)
-  return result.action
+  if (result.actions.length !== 1) {
+    throw new Error(`expected exactly one action, got ${result.actions.length}`)
+  }
+  return result.actions[0]!
 }

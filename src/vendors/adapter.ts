@@ -8,7 +8,7 @@ import type { Action, Decision } from '../types.js'
  * was malformed (`ok: false`) and the adapter explains why.
  */
 export type ParseActionResult =
-  | { ok: true; action: Action }
+  | { ok: true; actions: readonly Action[] }
   | { ok: false; reason: string }
 
 /**
@@ -19,12 +19,15 @@ export type ParseActionResult =
  * Edit transform that reads the current file to compute the full
  * post-edit content) work alongside fully-sync schemas.
  */
-export function fromSchema(
-  schema: z.ZodType<Action>,
+export function fromSchema<T extends Action | readonly Action[]>(
+  schema: z.ZodType<T>,
 ): (payload: unknown) => Promise<ParseActionResult> {
   return async (payload) => {
     const parsed = await schema.safeParseAsync(payload)
-    if (parsed.success) return { ok: true, action: parsed.data }
+    if (parsed.success) {
+      const data = parsed.data
+      return { ok: true, actions: Array.isArray(data) ? data : [data] }
+    }
     return {
       ok: false,
       reason: parsed.error.issues.flatMap(unwrapIssue).join('; '),
