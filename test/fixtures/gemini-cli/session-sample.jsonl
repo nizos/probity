@@ -1,5 +1,0 @@
-{"sessionId":"89d85314-c995-4126-be50-8166eb01d6cb","projectHash":"f3d572f3331cd82ba4f1861e338be5df93b8f8bf124f0772b33b17ace6b61e77","startTime":"2026-05-18T08:19:36.692Z","lastUpdated":"2026-05-18T08:19:36.692Z","kind":"main"}
-{"id":"user-1","timestamp":"2026-05-18T08:19:53.293Z","type":"user","content":[{"text":"Hello"}]}
-{"id":"gemini-1","timestamp":"2026-05-18T08:19:55.477Z","type":"gemini","content":"","toolCalls":[{"id":"tool-1","name":"list_directory","args":{"dir_path":"src"},"result":[{"functionResponse":{"id":"tool-1","name":"list_directory","response":{"output":"src/index.ts"}}}]}]}
-{"id":"user-2","timestamp":"2026-05-18T08:20:00.000Z","type":"user","content":[{"text":"Next step"}]}
-{"id":"gemini-2","timestamp":"2026-05-18T08:20:05.000Z","type":"gemini","content":"Done"}
