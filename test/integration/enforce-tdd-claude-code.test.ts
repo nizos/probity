@@ -5,9 +5,11 @@ import { describe, expect, test as baseTest } from 'vitest'
 
 import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
+import type { RuleContext } from '../../src/rules/contract.js'
 import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
 import { claudeCode } from '../../src/vendors/claude-code/agent.js'
+import { readTranscript } from '../../src/vendors/claude-code/transcript.js'
 import { preflightAuth, skipIfUnauthed } from '../helpers/preflight-auth.js'
 import { makeSandboxDir } from '../helpers/sandbox.js'
 import {
@@ -140,6 +142,22 @@ describe.concurrent(
         transcript: T.priorBlock,
       })
       expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('returns an empty reason when the validator allows the write', async () => {
+      const ctx: RuleContext = {
+        agent: claudeCode(),
+        rawHistory: () => readTranscript(T.clean),
+        readFile: () => Promise.resolve({ kind: 'absent' }),
+      }
+
+      const result = await enforceTdd({ fastPath: false })(
+        { kind: 'write', path: 'target.ts', content: MINIMAL_IMPL },
+        ctx,
+      )
+
+      expect(result.kind, JSON.stringify(result)).toBe('pass')
+      expect(result.reason).toBe('')
     })
   },
   60_000,

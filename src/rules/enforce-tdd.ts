@@ -136,6 +136,7 @@ const RESPONSE_SPEC = `## Response format
 
 Respond with a single JSON object of exactly this shape:
 {"kind":"pass"|"violation","reason":"<short explanation>"}
+On "pass", leave reason an empty string (""); only a "violation" needs an explanation.
 Return JSON only. No prose, no code fences.`
 
 function formatEvent(event: RawSessionEvent): string {
