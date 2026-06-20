@@ -14,7 +14,7 @@ describe('antigravity-cli adapter', () => {
     })
     expect(result).toEqual({
       ok: true,
-      action: { kind: 'command', command: 'npm test' },
+      actions: [{ kind: 'command', command: 'npm test' }],
     })
   })
 
@@ -26,7 +26,9 @@ describe('antigravity-cli adapter', () => {
     })
     expect(result).toEqual({
       ok: true,
-      action: { kind: 'write', path: '/work/src/note.txt', content: 'hello' },
+      actions: [
+        { kind: 'write', path: '/work/src/note.txt', content: 'hello' },
+      ],
     })
   })
 
@@ -46,11 +48,13 @@ describe('antigravity-cli adapter', () => {
     })
     expect(result).toEqual({
       ok: true,
-      action: {
-        kind: 'write',
-        path: file.replace(/\\/g, '/'),
-        content: 'def answer():\n    return 2\n',
-      },
+      actions: [
+        {
+          kind: 'write',
+          path: file.replace(/\\/g, '/'),
+          content: 'def answer():\n    return 2\n',
+        },
+      ],
     })
   })
 
@@ -61,7 +65,7 @@ describe('antigravity-cli adapter', () => {
     })
     expect(result).toEqual({
       ok: true,
-      action: { kind: 'command', command: '' },
+      actions: [{ kind: 'command', command: '' }],
     })
   })
 
