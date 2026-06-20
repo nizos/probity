@@ -45,8 +45,9 @@ export async function readTranscript(
         }),
       )
     } else {
-      // Any other step is the most recent call's result. A no-op when
-      // nothing is pending, so a turn-opening CONVERSATION_HISTORY is fine.
+      // Catch-all: any other step resolves the oldest pending call. Assumes no
+      // non-result step arrives mid-call: the captured CONVERSATION_HISTORY sits
+      // at turn-open with nothing pending. If one does, all later pairings shift.
       resolve(content ?? '')
     }
   }
