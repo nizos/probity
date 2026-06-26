@@ -298,10 +298,10 @@ describe('enforce-tdd', () => {
     expect(s.capturedPrompt).toMatch(/reason/i)
   })
 
-  it('fast-paths a single-test addition without calling the AI agent', async () => {
+  it('calls the AI for a single-test addition when fastPath is left at its default', async () => {
     const s = setup()
 
-    const result = await s.rule(
+    await s.rule(
       writeAction(
         'src/foo.test.ts',
         `describe('x', () => { it('a', () => {}) })`,
@@ -309,12 +309,11 @@ describe('enforce-tdd', () => {
       s.ctx,
     )
 
-    expect(result).toMatchObject({ kind: 'pass' })
-    expect(s.agentCalled).toBe(false)
+    expect(s.agentCalled).toBe(true)
   })
 
-  it('emits a fast-path note when the fast-path fires', async () => {
-    const s = setup()
+  it('emits a fast-path note and skips the AI when fastPath is enabled', async () => {
+    const s = setup({ fastPath: true })
 
     const result = await s.rule(
       writeAction(
@@ -328,6 +327,7 @@ describe('enforce-tdd', () => {
       kind: 'pass',
       notes: [{ kind: 'fast-path' }],
     })
+    expect(s.agentCalled).toBe(false)
   })
 
   it('preserves the validator verdict reason on the pass result', async () => {

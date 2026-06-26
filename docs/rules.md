@@ -6,19 +6,19 @@ Probity ships five built-in rules. Each is a factory called with its options in 
 
 Blocks a write unless the session's recent history shows a failing test that the pending implementation would address, and the write is the minimum needed to make that test pass. Uses an AI validator — via the agent's official SDK — to judge the pending action against the transcript and the file's current content.
 
-A deterministic fast-path skips the AI when a write adds exactly one new test node to a recognised language; see [Fast-path](#fast-path) below.
+An opt-in deterministic fast-path can skip the AI when a write adds exactly one new test node to a recognised language; see [Fast-path](#fast-path) below.
 
 - **Applies to:** write actions
 - **Supported agents:** Claude Code, OpenAI Codex, GitHub Copilot
 
 ### Options
 
-| Option            | Type                                       | Default                      | Description                                                                                                                                                                                      |
-| ----------------- | ------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `instructions`    | `string \| ((defaults: string) => string)` | built-in three-rule TDD spec | Overrides or extends the default TDD rules text. Pass a string to replace outright, or a function `(defaults) => ...` to extend (e.g. append a project addendum without forking the whole spec). |
-| `maxEvents`       | `number`                                   | `10`                         | Keep at most this many of the most recent session events when building the validator prompt. Caps token usage on long transcripts.                                                               |
-| `maxContentChars` | `number`                                   | `6000`                       | Truncate any single event's text/output longer than this with a head + marker + tail replacement, so the validator still sees both edges.                                                        |
-| `fastPath`        | `boolean`                                  | `true`                       | When a write to a recognised language adds exactly one new test node, return pass without calling the AI. Set to `false` to AI-validate every matching write.                                    |
+| Option            | Type                                       | Default                      | Description                                                                                                                                                                                                     |
+| ----------------- | ------------------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `instructions`    | `string \| ((defaults: string) => string)` | built-in three-rule TDD spec | Overrides or extends the default TDD rules text. Pass a string to replace outright, or a function `(defaults) => ...` to extend (e.g. append a project addendum without forking the whole spec).                |
+| `maxEvents`       | `number`                                   | `10`                         | Keep at most this many of the most recent session events when building the validator prompt. Caps token usage on long transcripts.                                                                              |
+| `maxContentChars` | `number`                                   | `6000`                       | Truncate any single event's text/output longer than this with a head + marker + tail replacement, so the validator still sees both edges.                                                                       |
+| `fastPath`        | `boolean`                                  | `false`                      | When a write to a recognised language adds exactly one new test node, return pass without calling the AI. Off by default so single-test writes still reach the validator; set to `true` to skip the AI on them. |
 
 ### Examples
 
@@ -53,15 +53,15 @@ Tests must use the project's custom assertion helpers.`,
 })
 ```
 
-AI-validate every write, even single-test additions:
+Skip the AI on single-test additions by opting into the fast-path:
 
 ```ts
-enforceTdd({ fastPath: false })
+enforceTdd({ fastPath: true })
 ```
 
 ### Fast-path
 
-When a write to a recognised language adds exactly one new test node, the rule returns pass without consulting the AI — operationalising the rubric's "adding a test is always allowed" line as a deterministic check. Multi-test writes, implementation writes, and unrecognised file types fall through to the AI as before.
+The fast-path is opt-in: pass `fastPath: true` to enable it. When enabled, a write to a recognised language that adds exactly one new test node returns pass without consulting the AI. It is off by default because a single-test write is the green-to-red boundary where the validator checks whether the prior green left a refactor unmade, and fast-passing it would skip that check. Multi-test writes, implementation writes, and unrecognised file types fall through to the AI regardless.
 
 | Language   | Extensions    | Required pack           | Test patterns recognised                                                 |
 | ---------- | ------------- | ----------------------- | ------------------------------------------------------------------------ |

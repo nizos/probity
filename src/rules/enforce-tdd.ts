@@ -215,10 +215,12 @@ function formatBefore(before: FileContent): string {
  *   maxEvents about over-stuffing the prompt.
  * @param options.fastPath — when a write to a recognized language adds
  *   exactly one new test node, return pass without calling the AI
- *   (default true). Operationalises the rubric's "adding a test is
- *   always allowed" line as a deterministic check, cutting cycle time
- *   on the happy path. Set to `false` to AI-validate every matching
- *   write.
+ *   (default false). Off by default because a deterministic pass on
+ *   every new test lets an agent skip the refactor phase: the
+ *   green->red boundary is exactly where the AI checks whether the
+ *   prior green left a refactor unmade. Set to `true` to allow
+ *   single-test additions without an AI call and cut cycle time when
+ *   refactor enforcement is not a concern.
  *
  * @example
  * enforceTdd()
@@ -242,7 +244,7 @@ export function enforceTdd(
     maxEvents: options.maxEvents ?? DEFAULT_MAX_EVENTS,
     maxContentChars: options.maxContentChars ?? DEFAULT_MAX_CONTENT_CHARS,
   }
-  const fastPath = options.fastPath ?? true
+  const fastPath = options.fastPath ?? false
   return async function enforceTdd(
     action: Action,
     ctx?: RuleContext,
