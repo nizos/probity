@@ -28,9 +28,11 @@ import {
 import {
   LEDGER_BORDERLINE_TESTS,
   LEDGER_BORDERLINE_TESTS_WITH_TRANSFER,
-  LEDGER_TESTS,
-  LEDGER_TESTS_WITH_TRANSFER,
 } from '../helpers/ledger-fixtures.js'
+import {
+  SUMMARIZE_TESTS,
+  SUMMARIZE_TESTS_WITH_PERCENT,
+} from '../helpers/summarize-fixtures.js'
 import {
   CLEAR_AFTER,
   CLEAR_BEFORE,
@@ -47,7 +49,7 @@ const T = {
     'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
   priorBlock: 'test/fixtures/transcripts/tdd-prior-block-not-in-rules.jsonl',
   removeUsedFn: 'test/fixtures/transcripts/tdd-remove-used-fn.jsonl',
-  refactorSkipped: 'test/fixtures/transcripts/ledger-refactor-skipped.jsonl',
+  refactorSkipped: 'test/fixtures/transcripts/summarize-refactor-skipped.jsonl',
   borderlineRefactor:
     'test/fixtures/transcripts/ledger-borderline-refactor.jsonl',
   overrideAgentClear: 'test/fixtures/transcripts/override-agent-clear.jsonl',
@@ -182,9 +184,9 @@ describe.concurrent(
       runScenario,
     }) => {
       const result = await runScenario({
-        filename: 'ledger.test.ts',
-        seed: LEDGER_TESTS,
-        content: LEDGER_TESTS_WITH_TRANSFER,
+        filename: 'summarize.test.ts',
+        seed: SUMMARIZE_TESTS,
+        content: SUMMARIZE_TESTS_WITH_PERCENT,
         transcript: T.refactorSkipped,
       })
       expect(result.decision, result.reason).toBe('deny')
