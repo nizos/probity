@@ -22,6 +22,8 @@ import {
   OVER_IMPL,
   PLUS_ONE_TEST,
   PLUS_TWO_TESTS,
+  USED_FN_PRESENT,
+  USED_FN_REMOVED,
 } from '../helpers/tdd-fixtures.js'
 
 const T = {
@@ -32,6 +34,7 @@ const T = {
   noisyBuriedFailure:
     'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
   priorBlock: 'test/fixtures/transcripts/tdd-prior-block-not-in-rules.jsonl',
+  removeUsedFn: 'test/fixtures/transcripts/tdd-remove-used-fn.jsonl',
 }
 
 type ScenarioInput = {
@@ -140,6 +143,18 @@ describe.concurrent(
         seed: DEAD_HELPER_STILL_CALLED,
         content: DEAD_HELPER_CALLER_MIGRATED,
         transcript: T.priorBlock,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('allows removing an in-use function without a failing test', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'greet.ts',
+        seed: USED_FN_PRESENT,
+        content: USED_FN_REMOVED,
+        transcript: T.removeUsedFn,
       })
       expect(result.decision, result.reason).toBe('allow')
     })

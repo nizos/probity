@@ -60,6 +60,11 @@ const DEFAULT_TDD_RULES = `## TDD rules
 
 The TDD cycle is Red -> Green -> Refactor. Each phase has its own rules.
 
+### Across all phases
+
+Deleting code, tests, or helpers never requires a failing test to drive
+it, even when the removed code was used or test-covered.
+
 ### Red phase: write a failing test first
 
 A single write should add at most one new test. Compare current file

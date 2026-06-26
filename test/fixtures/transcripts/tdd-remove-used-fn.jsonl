@@ -1,0 +1,3 @@
+{"type":"user","message":{"content":[{"type":"text","text":"We're dropping the farewell feature. Remove the `farewell` function from greet.ts and migrate its callers."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_1","name":"Bash","input":{"command":"npm test"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_1","content":"PASS src/greet.test.ts\n  greet > greets by name\n  greet > farewells by name\n  greet > holds a conversation\n\nTest Files  1 passed (1)\n     Tests  3 passed (3)"}]}}

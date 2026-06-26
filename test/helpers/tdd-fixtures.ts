@@ -165,6 +165,36 @@ async function setupFile(content: string): Promise<string> {
 `
 
 /**
+ * Removing an in-use function. {@link USED_FN_PRESENT} exports `greet`,
+ * `farewell`, and a `conversation` that calls both.
+ * {@link USED_FN_REMOVED} is the pending write that deletes `farewell`,
+ * leaving `conversation` referencing a now-removed name (a transient
+ * broken state). This is removal of live behavior, and no failing test
+ * drives it.
+ */
+export const USED_FN_PRESENT = `export function greet(name: string): string {
+  return \`Hello, \${name}\`
+}
+
+export function farewell(name: string): string {
+  return \`Goodbye, \${name}\`
+}
+
+export function conversation(name: string): string {
+  return \`\${greet(name)}. \${farewell(name)}\`
+}
+`
+
+export const USED_FN_REMOVED = `export function greet(name: string): string {
+  return \`Hello, \${name}\`
+}
+
+export function conversation(name: string): string {
+  return \`\${greet(name)}. \${farewell(name)}\`
+}
+`
+
+/**
  * "Looks like a test file" heuristic. Used by setups to place the
  * pending write under target.test.ts vs target.ts so the rule's
  * "is this a test or impl?" classifier sees the expected name.
