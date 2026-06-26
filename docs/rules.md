@@ -8,6 +8,8 @@ Blocks a write unless the session's recent history shows a failing test that the
 
 It also enforces the refactor step: starting the next test is blocked only when the prior green left an unmistakable, downside-free refactor undone. Anything less clear-cut lets green stand.
 
+> **Tip:** In tricky or unclear cases, your judgment can override the validator: reply in the session asking for the change to be let through, and it's allowed on the next attempt. The override is temporary; for lasting adjustments, use custom `instructions`.
+
 An opt-in deterministic fast-path can skip the AI when a write adds exactly one new test node to a recognised language; see [Fast-path](#fast-path) below.
 
 - **Applies to:** write actions

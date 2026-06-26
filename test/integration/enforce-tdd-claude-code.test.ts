@@ -31,6 +31,12 @@ import {
   LEDGER_TESTS,
   LEDGER_TESTS_WITH_TRANSFER,
 } from '../helpers/ledger-fixtures.js'
+import {
+  CLEAR_AFTER,
+  CLEAR_BEFORE,
+  RESOLVE_AFTER,
+  RESOLVE_BEFORE,
+} from '../helpers/override-fixtures.js'
 
 const T = {
   clean: 'test/fixtures/transcripts/tdd-clean.jsonl',
@@ -44,6 +50,10 @@ const T = {
   refactorSkipped: 'test/fixtures/transcripts/ledger-refactor-skipped.jsonl',
   borderlineRefactor:
     'test/fixtures/transcripts/ledger-borderline-refactor.jsonl',
+  overrideAgentClear: 'test/fixtures/transcripts/override-agent-clear.jsonl',
+  overrideAgentFeedback:
+    'test/fixtures/transcripts/override-agent-feedback.jsonl',
+  overrideUser: 'test/fixtures/transcripts/override-user.jsonl',
 }
 
 type ScenarioInput = {
@@ -188,6 +198,42 @@ describe.concurrent(
         seed: LEDGER_BORDERLINE_TESTS,
         content: LEDGER_BORDERLINE_TESTS_WITH_TRANSFER,
         transcript: T.borderlineRefactor,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('blocks a clear violation even when the agent asks Probity to allow it', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'resolve.ts',
+        seed: CLEAR_BEFORE,
+        content: CLEAR_AFTER,
+        transcript: T.overrideAgentClear,
+      })
+      expect(result.decision, result.reason).toBe('deny')
+    })
+
+    it('allows a deceptive refactor when the user authorises it', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'resolve.ts',
+        seed: RESOLVE_BEFORE,
+        content: RESOLVE_AFTER,
+        transcript: T.overrideUser,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('allows a deceptive refactor when the agent shows why it is behavior-preserving', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'resolve.ts',
+        seed: RESOLVE_BEFORE,
+        content: RESOLVE_AFTER,
+        transcript: T.overrideAgentFeedback,
       })
       expect(result.decision, result.reason).toBe('allow')
     })
