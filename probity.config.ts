@@ -1,6 +1,7 @@
 import {
   defineConfig,
   enforceTdd,
+  forbidCommandPattern,
   forbidContentPattern,
   requireCommand,
 } from './src/index.js'
@@ -12,6 +13,20 @@ export default defineConfig({
       command: /npm run checks/,
       after: { kind: 'write' },
       reason: 'Run `npm run checks` after the latest write before committing.',
+    }),
+    forbidCommandPattern({
+      match: /(?:^|[;&|])\s*find\s/,
+      reason:
+        'Use the Glob tool (by name) or Grep tool (by content), not find.',
+    }),
+    forbidCommandPattern({
+      match: /(?:^|[;&|])\s*sed\s/,
+      reason:
+        'Use the Read tool (ranges via offset/limit) or Grep (-A/-B/-C), not sed.',
+    }),
+    forbidCommandPattern({
+      match: /(?:^|[;&|])\s*echo\b[^>]*>>?\s*(?!&\d)(?!\/dev\/null)\S/,
+      reason: 'Use the Write/Edit tool to write files, not echo redirection.',
     }),
     {
       files: ['src/**', 'test/**'],
