@@ -6,6 +6,8 @@ Probity ships five built-in rules. Each is a factory called with its options in 
 
 Blocks a write unless the session's recent history shows a failing test that the pending implementation would address, and the write is the minimum needed to make that test pass. Uses an AI validator — via the agent's official SDK — to judge the pending action against the transcript and the file's current content.
 
+It also enforces the refactor step: starting the next test is blocked only when the prior green left an unmistakable, downside-free refactor undone. Anything less clear-cut lets green stand.
+
 An opt-in deterministic fast-path can skip the AI when a write adds exactly one new test node to a recognised language; see [Fast-path](#fast-path) below.
 
 - **Applies to:** write actions

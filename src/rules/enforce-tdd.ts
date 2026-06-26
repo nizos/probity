@@ -67,12 +67,16 @@ it, even when the removed code was used or test-covered.
 
 ### Red phase: write a failing test first
 
+In red you add one test that drives new behavior and expect it to
+fail when the suite runs.
+
 A single write should add at most one new test. Compare current file
 content with pending action to count newly added tests; existing
 tests do not count. Restructuring existing tests is not "adding".
 
-  - Adding a test is always allowed and does not require prior test
-    output.
+  - Adding a test is the red step itself; it is allowed and does not
+    require observing it fail first, unless the prior green left a
+    refactor unmade (see "Enforcing the refactor phase").
   - A test added to drive new behavior must be observed failing for
     the right reason (an assertion, not a syntax or import error) in
     a prior test run before production code may be written to satisfy
@@ -130,6 +134,16 @@ the relevant tests were passing before the refactor began. Examples:
   - Reorganizing or deleting redundant tests, or splitting/combining
     existing tests. The one-new-test rule is about intent to add
     behavior, not surface diff count.
+
+#### Enforcing the refactor phase
+
+Writing the next test crosses the green->red boundary, so judge a new
+red here too, not only production writes. Refactor is part of the cycle:
+when the prior green left one that is unmistakable and clearly without
+downside, block and name it. The bar is high because forcing a refactor
+risks needless abstraction, indirection, or breaking conventions the
+agent can see and you cannot, so when the win is not clear-cut, let green
+stand.
 
 ## Validator behavior
 

@@ -25,6 +25,12 @@ import {
   USED_FN_PRESENT,
   USED_FN_REMOVED,
 } from '../helpers/tdd-fixtures.js'
+import {
+  LEDGER_BORDERLINE_TESTS,
+  LEDGER_BORDERLINE_TESTS_WITH_TRANSFER,
+  LEDGER_TESTS,
+  LEDGER_TESTS_WITH_TRANSFER,
+} from '../helpers/ledger-fixtures.js'
 
 const T = {
   clean: 'test/fixtures/transcripts/tdd-clean.jsonl',
@@ -35,6 +41,9 @@ const T = {
     'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
   priorBlock: 'test/fixtures/transcripts/tdd-prior-block-not-in-rules.jsonl',
   removeUsedFn: 'test/fixtures/transcripts/tdd-remove-used-fn.jsonl',
+  refactorSkipped: 'test/fixtures/transcripts/ledger-refactor-skipped.jsonl',
+  borderlineRefactor:
+    'test/fixtures/transcripts/ledger-borderline-refactor.jsonl',
 }
 
 type ScenarioInput = {
@@ -155,6 +164,30 @@ describe.concurrent(
         seed: USED_FN_PRESENT,
         content: USED_FN_REMOVED,
         transcript: T.removeUsedFn,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('blocks the next cycle when the prior green left an unmistakable refactor undone', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'ledger.test.ts',
+        seed: LEDGER_TESTS,
+        content: LEDGER_TESTS_WITH_TRANSFER,
+        transcript: T.refactorSkipped,
+      })
+      expect(result.decision, result.reason).toBe('deny')
+    })
+
+    it('allows the next cycle when the refactor is a judgment call, not a clear win', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'ledger.test.ts',
+        seed: LEDGER_BORDERLINE_TESTS,
+        content: LEDGER_BORDERLINE_TESTS_WITH_TRANSFER,
+        transcript: T.borderlineRefactor,
       })
       expect(result.decision, result.reason).toBe('allow')
     })
