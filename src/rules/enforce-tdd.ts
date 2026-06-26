@@ -108,7 +108,9 @@ Returning a literal that the assertion will reject IS a stub.
 
 The implementation must not exceed the minimum needed to make the
 observed failing test pass. Functions, classes, or branches not
-required by the currently failing test are over-implementation.
+required by the currently failing test are over-implementation. An
+import or other scaffolding awaiting a later write in the same change
+is a transient state, not over-implementation.
 
 ### Refactor phase: improve structure under green
 
