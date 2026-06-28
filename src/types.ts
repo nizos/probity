@@ -55,8 +55,10 @@ export type Outcome = {
  *   Optional `agentCalls` records AI validator calls the rule made
  *   during its run; captured by an external observer subscribed to
  *   the engine's lifecycle hooks, not by the rule itself.
- * - `rule-threw` — a rule threw an exception; the engine fail-closes
- *   to a block decision, and this entry attributes the throw.
+ * - `rule-failed` — a rule ran but did not yield a usable result: it
+ *   either threw or returned a value off the pass/violation contract.
+ *   The engine fail-closes to a block; `reason` explains which. The
+ *   rule-side twin of `parse-failed`.
  * - `parse-failed` — the cli's parse layer rejected the payload before
  *   the engine ran; no rule was evaluated.
  */
@@ -68,7 +70,7 @@ export type TraceEntry =
       durationMs: number
       agentCalls?: readonly AgentCall[]
     }
-  | { kind: 'rule-threw'; rule: string; reason: string; durationMs: number }
+  | { kind: 'rule-failed'; rule: string; reason: string; durationMs: number }
   | { kind: 'parse-failed'; reason: string }
 
 /**

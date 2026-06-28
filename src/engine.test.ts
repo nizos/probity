@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 import { evaluate } from './engine.js'
 import type { Rule } from './rules/contract.js'
+import type { RuleResult } from './types.js'
 
 describe('engine', () => {
   it('records a rule-evaluated entry for each rule that ran, including the violator', async () => {
@@ -156,22 +157,23 @@ describe('engine', () => {
     })
   })
 
-  it('turns an invalid custom rule result into a block decision (fail-closed)', async () => {
-    const invalid: Rule = () =>
-      ({ kind: 'skip' }) as unknown as ReturnType<Rule>
+  it('turns an off-contract rule result into a fail-closed block, recording a rule-failed entry', async () => {
+    const offContract: Rule = () => ({ kind: 'skip' }) as unknown as RuleResult
 
-    const { decision } = await evaluate({ kind: 'command', command: 'x' }, [
-      invalid,
-    ])
+    const { decision, trace } = await evaluate(
+      { kind: 'command', command: 'x' },
+      [offContract],
+    )
 
-    expect(decision).toEqual({
-      kind: 'block',
-      reason:
-        'rule error: invalid rule result: expected kind "pass" or "violation"',
+    expect(decision.kind).toBe('block')
+    expect(trace[0]).toMatchObject({
+      kind: 'rule-failed',
+      rule: 'offContract',
+      reason: 'returned a result outside the pass/violation contract',
     })
   })
 
-  it('records a rule-threw entry attributing the throwing rule', async () => {
+  it('records a rule-failed entry attributing a throwing rule, with the error as the reason', async () => {
     const crashing: Rule = () => {
       throw new Error('kaboom')
     }
@@ -181,13 +183,13 @@ describe('engine', () => {
     ])
 
     expect(outcome.trace[0]).toMatchObject({
-      kind: 'rule-threw',
+      kind: 'rule-failed',
       rule: 'crashing',
       reason: 'kaboom',
     })
   })
 
-  it('records the durationMs of each rule-threw entry as a non-negative number', async () => {
+  it('records the durationMs of each rule-failed entry as a non-negative number', async () => {
     const crashing: Rule = () => {
       throw new Error('kaboom')
     }
@@ -197,8 +199,8 @@ describe('engine', () => {
     ])
     const first = outcome.trace[0]
 
-    if (first?.kind !== 'rule-threw') {
-      expect.fail(`expected rule-threw; got ${first?.kind ?? 'no entry'}`)
+    if (first?.kind !== 'rule-failed') {
+      expect.fail(`expected rule-failed; got ${first?.kind ?? 'no entry'}`)
     }
     expect(first.durationMs).toBeGreaterThanOrEqual(0)
     expect(Number.isFinite(first.durationMs)).toBe(true)

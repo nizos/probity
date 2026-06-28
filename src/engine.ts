@@ -19,8 +19,9 @@ export type EvaluateHooks = {
  * Run rules against an action and return the engine's Outcome. The
  * violator's trace entry is pushed before the engine short-circuits,
  * so the trace ends with the rule that caused the block. Fail-closed:
- * a thrown rule becomes a block decision rather than an unhandled
- * rejection.
+ * a rule that throws or returns a value off the pass/violation contract
+ * becomes a block decision rather than an unhandled rejection or a
+ * silent allow.
  */
 export async function evaluate(
   action: Action,
@@ -50,12 +51,14 @@ async function runRule(
   const start = performance.now()
   try {
     const result: unknown = await rule(action, ctx)
-    if (!isRuleResult(result)) {
-      throw new Error(
-        'invalid rule result: expected kind "pass" or "violation"',
-      )
-    }
     const durationMs = performance.now() - start
+    if (!isRuleResult(result)) {
+      const reason = 'returned a result outside the pass/violation contract'
+      return {
+        traceEntry: { kind: 'rule-failed', rule: ruleName, reason, durationMs },
+        decision: { kind: 'block', reason: `rule error: ${reason}` },
+      }
+    }
     const traceEntry: TraceEntry = {
       kind: 'rule-evaluated',
       rule: ruleName,
@@ -70,7 +73,7 @@ async function runRule(
     const durationMs = performance.now() - start
     const reason = error instanceof Error ? error.message : String(error)
     return {
-      traceEntry: { kind: 'rule-threw', rule: ruleName, reason, durationMs },
+      traceEntry: { kind: 'rule-failed', rule: ruleName, reason, durationMs },
       decision: { kind: 'block', reason: `rule error: ${reason}` },
     }
   } finally {

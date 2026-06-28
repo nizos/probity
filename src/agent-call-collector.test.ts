@@ -49,7 +49,7 @@ describe('createAgentCallCollector', () => {
     const { collector } = setup()
     const trace: readonly TraceEntry[] = [
       { kind: 'parse-failed', reason: 'bad json' },
-      { kind: 'rule-threw', rule: 'x', reason: 'boom', durationMs: 1 },
+      { kind: 'rule-failed', rule: 'x', reason: 'boom', durationMs: 1 },
     ]
 
     expect(collector.enrichTrace(trace)).toEqual(trace)
