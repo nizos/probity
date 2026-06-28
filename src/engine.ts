@@ -1,12 +1,6 @@
 import type { RuleEntry } from './config.js'
-import type {
-  Action,
-  Decision,
-  Outcome,
-  RuleResult,
-  TraceEntry,
-} from './types.js'
-import type { Rule, RuleContext } from './rules/contract.js'
+import type { Action, Decision, Outcome, TraceEntry } from './types.js'
+import { isRuleResult, type Rule, type RuleContext } from './rules/contract.js'
 import { actionMatchesFilesScope } from './rules/utils/match-paths.js'
 
 /**
@@ -82,16 +76,6 @@ async function runRule(
   } finally {
     hooks?.onRuleEnd?.(ruleName)
   }
-}
-
-function isRuleResult(result: unknown): result is RuleResult {
-  if (!result || typeof result !== 'object') return false
-  const kind = (result as { kind?: unknown }).kind
-  if (kind === 'pass') return true
-  return (
-    kind === 'violation' &&
-    typeof (result as { reason?: unknown }).reason === 'string'
-  )
 }
 
 function resolveRules(entry: RuleEntry, action: Action): readonly Rule[] {

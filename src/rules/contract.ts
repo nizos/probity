@@ -38,3 +38,18 @@ export type Rule = (
   action: Action,
   ctx?: RuleContext,
 ) => RuleResult | Promise<RuleResult>
+
+/**
+ * Validity guard at the rule-producer boundary: is `value` a usable
+ * pass/violation result? Rules are user-authored and fallible, so the
+ * engine narrows their return before acting on it.
+ */
+export function isRuleResult(value: unknown): value is RuleResult {
+  if (typeof value !== 'object' || value === null) return false
+  const kind = (value as { kind?: unknown }).kind
+  if (kind === 'pass') return true
+  return (
+    kind === 'violation' &&
+    typeof (value as { reason?: unknown }).reason === 'string'
+  )
+}
