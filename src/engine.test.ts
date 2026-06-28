@@ -156,6 +156,21 @@ describe('engine', () => {
     })
   })
 
+  it('turns an invalid custom rule result into a block decision (fail-closed)', async () => {
+    const invalid: Rule = () =>
+      ({ kind: 'skip' }) as unknown as ReturnType<Rule>
+
+    const { decision } = await evaluate({ kind: 'command', command: 'x' }, [
+      invalid,
+    ])
+
+    expect(decision).toEqual({
+      kind: 'block',
+      reason:
+        'rule error: invalid rule result: expected kind "pass" or "violation"',
+    })
+  })
+
   it('records a rule-threw entry attributing the throwing rule', async () => {
     const crashing: Rule = () => {
       throw new Error('kaboom')

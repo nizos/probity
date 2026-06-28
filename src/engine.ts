@@ -1,5 +1,11 @@
 import type { RuleEntry } from './config.js'
-import type { Action, Decision, Outcome, TraceEntry } from './types.js'
+import type {
+  Action,
+  Decision,
+  Outcome,
+  RuleResult,
+  TraceEntry,
+} from './types.js'
 import type { Rule, RuleContext } from './rules/contract.js'
 import { actionMatchesFilesScope } from './rules/utils/match-paths.js'
 
@@ -49,7 +55,12 @@ async function runRule(
   hooks?.onRuleStart?.(ruleName)
   const start = performance.now()
   try {
-    const result = await rule(action, ctx)
+    const result: unknown = await rule(action, ctx)
+    if (!isRuleResult(result)) {
+      throw new Error(
+        'invalid rule result: expected kind "pass" or "violation"',
+      )
+    }
     const durationMs = performance.now() - start
     const traceEntry: TraceEntry = {
       kind: 'rule-evaluated',
@@ -71,6 +82,16 @@ async function runRule(
   } finally {
     hooks?.onRuleEnd?.(ruleName)
   }
+}
+
+function isRuleResult(result: unknown): result is RuleResult {
+  if (!result || typeof result !== 'object') return false
+  const kind = (result as { kind?: unknown }).kind
+  if (kind === 'pass') return true
+  return (
+    kind === 'violation' &&
+    typeof (result as { reason?: unknown }).reason === 'string'
+  )
 }
 
 function resolveRules(entry: RuleEntry, action: Action): readonly Rule[] {
