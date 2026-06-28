@@ -25,7 +25,8 @@ export default defineConfig({
         'Use the Read tool (ranges via offset/limit) or Grep (-A/-B/-C), not sed.',
     }),
     forbidCommandPattern({
-      match: /(?:^|[;&|])\s*echo\b[^>]*>>?\s*(?!&\d)(?!\/dev\/null)\S/,
+      match:
+        /(?:^|[;&|])\s*echo\b[^;&|]*?(?<![-=])>>?\s*(?!&\d)(?!\/dev\/null)\S/,
       reason: 'Use the Write/Edit tool to write files, not echo redirection.',
     }),
     {
