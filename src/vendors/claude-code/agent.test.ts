@@ -60,6 +60,17 @@ describe('claudeCode', () => {
     expect(capture.last?.options?.permissionMode).toBe('dontAsk')
   })
 
+  it('disables auto-memory so the supervised agent cannot steer its validator', async () => {
+    const capture = captureQuery()
+    const client = claudeCode({ queryFn: capture.fn })
+
+    await client.reason('prompt')
+
+    expect(capture.last?.options?.settings).toEqual({
+      autoMemoryEnabled: false,
+    })
+  })
+
   it('does not inherit host project or user settings', async () => {
     const capture = captureQuery()
     const client = claudeCode({ queryFn: capture.fn })

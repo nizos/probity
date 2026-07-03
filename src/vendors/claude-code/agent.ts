@@ -36,6 +36,7 @@ async function getResult(
       thinking: { type: 'disabled' },
       permissionMode: 'dontAsk',
       tools: [],
+      settings: { autoMemoryEnabled: false },
       settingSources: [],
       persistSession: false,
     },
