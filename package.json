@@ -88,9 +88,6 @@
     "typescript-eslint": "^8.58.2",
     "vitest": "^4.1.4"
   },
-  "overrides": {
-    "@anthropic-ai/sdk": "^0.92.0"
-  },
   "peerDependencies": {
     "@ast-grep/lang-csharp": "*",
     "@ast-grep/lang-php": "*",
@@ -112,7 +109,7 @@
     }
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.114",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.200",
     "@ast-grep/napi": "^0.42.1",
     "@github/copilot-sdk": "^0.3.0",
     "@openai/codex-sdk": "^0.124.0",
