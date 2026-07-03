@@ -33,15 +33,13 @@ describe('claudeCode', () => {
     expect(capture.last?.options?.maxTurns).toBe(1)
   })
 
-  it('disallows tool use so the validator cannot act', async () => {
+  it('disables the built-in tool set so no tool reaches the prompt', async () => {
     const capture = captureQuery()
     const client = claudeCode({ queryFn: capture.fn })
 
     await client.reason('prompt')
 
-    expect(capture.last?.options?.disallowedTools).toEqual(
-      expect.arrayContaining(['Bash', 'Write', 'Edit']),
-    )
+    expect(capture.last?.options?.tools).toEqual([])
   })
 
   it('disables extended thinking for fast turnaround', async () => {
@@ -53,14 +51,13 @@ describe('claudeCode', () => {
     expect(capture.last?.options?.thinking).toEqual({ type: 'disabled' })
   })
 
-  it('hard-denies any tool use via dontAsk + empty allowedTools', async () => {
+  it('denies any tool call at the permission layer via dontAsk', async () => {
     const capture = captureQuery()
     const client = claudeCode({ queryFn: capture.fn })
 
     await client.reason('prompt')
 
     expect(capture.last?.options?.permissionMode).toBe('dontAsk')
-    expect(capture.last?.options?.allowedTools).toEqual([])
   })
 
   it('does not inherit host project or user settings', async () => {

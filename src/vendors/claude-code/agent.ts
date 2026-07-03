@@ -35,26 +35,9 @@ async function getResult(
       maxTurns: 1,
       thinking: { type: 'disabled' },
       permissionMode: 'dontAsk',
-      allowedTools: [],
+      tools: [],
       settingSources: [],
       persistSession: false,
-      // Defense in depth: `allowedTools: []` + `permissionMode: 'dontAsk'`
-      // already blocks tool use, but explicitly naming every known tool
-      // guarantees the validator can't act even if the SDK defaults drift.
-      disallowedTools: [
-        'Bash',
-        'Write',
-        'Edit',
-        'MultiEdit',
-        'NotebookEdit',
-        'Read',
-        'Grep',
-        'Glob',
-        'WebFetch',
-        'WebSearch',
-        'Task',
-        'TodoWrite',
-      ],
     },
   })) {
     if (message.type === 'result' && message.subtype === 'success') {
