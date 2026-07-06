@@ -84,14 +84,23 @@ export type AgentCall = {
   verdict: Verdict
 }
 
+/** A JSON-serializable value. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue }
+
 /**
  * Opaque, vendor-defined validator telemetry attached to a Verdict and
  * surfaced on the operator's `--debug` trace. The domain does not
- * interpret it: each vendor's agent populates its own shape (token
- * counts, model, cache usage, and so on) from its SDK's native fields.
- * Observability only; no rule or engine code reads it.
+ * interpret it: each vendor's agent records the facts its SDK reports,
+ * shaped as the SDK reports them, and derives nothing. Observability
+ * only; no rule or engine code reads it.
  */
-export type AgentTelemetry = Readonly<Record<string, string | number>>
+export type AgentTelemetry = Readonly<Record<string, JsonValue>>
 
 /**
  * What an AI validator returns. Optional `meta` carries vendor-defined

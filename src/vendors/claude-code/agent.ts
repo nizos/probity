@@ -58,37 +58,47 @@ async function getResult(
 }
 
 type ClaudeCodeMeta = {
-  model?: string
+  models: readonly ModelUsageRow[]
+}
+
+type ModelUsageRow = {
+  model: string
   inputTokens?: number
   outputTokens?: number
   cacheReadInputTokens?: number
   cacheCreationInputTokens?: number
 }
 
+/**
+ * modelUsage includes auxiliary harness calls (routing, classification)
+ * alongside the verdict author, and nothing in it marks which is which,
+ * so no single model is attributed.
+ */
 function extractMeta(message: ClaudeMessage): ClaudeCodeMeta | undefined {
-  const meta: ClaudeCodeMeta = {}
-  if (isObject(message.usage)) {
-    const usage = message.usage
-    if (typeof usage.input_tokens === 'number') {
-      meta.inputTokens = usage.input_tokens
-    }
-    if (typeof usage.output_tokens === 'number') {
-      meta.outputTokens = usage.output_tokens
-    }
-    if (typeof usage.cache_read_input_tokens === 'number') {
-      meta.cacheReadInputTokens = usage.cache_read_input_tokens
-    }
-    if (typeof usage.cache_creation_input_tokens === 'number') {
-      meta.cacheCreationInputTokens = usage.cache_creation_input_tokens
-    }
+  if (!isObject(message.modelUsage)) return undefined
+  const models = Object.entries(message.modelUsage).map(([model, usage]) =>
+    usageRow(model, usage),
+  )
+  return models.length > 0 ? { models } : undefined
+}
+
+function usageRow(model: string, usage: unknown): ModelUsageRow {
+  if (!isObject(usage)) return { model }
+  return {
+    model,
+    ...(typeof usage.inputTokens === 'number' && {
+      inputTokens: usage.inputTokens,
+    }),
+    ...(typeof usage.outputTokens === 'number' && {
+      outputTokens: usage.outputTokens,
+    }),
+    ...(typeof usage.cacheReadInputTokens === 'number' && {
+      cacheReadInputTokens: usage.cacheReadInputTokens,
+    }),
+    ...(typeof usage.cacheCreationInputTokens === 'number' && {
+      cacheCreationInputTokens: usage.cacheCreationInputTokens,
+    }),
   }
-  if (isObject(message.modelUsage)) {
-    // modelUsage is keyed by model name; a single-turn validation run
-    // has exactly one, so its first key is the model.
-    const [model] = Object.keys(message.modelUsage)
-    if (model) meta.model = model
-  }
-  return Object.keys(meta).length > 0 ? meta : undefined
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {

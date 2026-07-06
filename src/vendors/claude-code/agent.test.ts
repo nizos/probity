@@ -134,6 +134,19 @@ describe('claudeCode', () => {
     expect(verdict.reason).toMatch(/result|string|shape/i)
   })
 
+  it('records no meta when the result carries no modelUsage ledger', async () => {
+    const client = claudeCode({
+      queryFn: fakeQuery({
+        result: '{"kind":"pass","reason":"ok"}',
+        usage: { input_tokens: 204, output_tokens: 19 },
+      }),
+    })
+
+    const verdict = await client.reason('prompt')
+
+    expect(verdict.meta).toBeUndefined()
+  })
+
   it('does not pass an env option (SDK handles session context)', async () => {
     const capture = captureQuery()
     const client = claudeCode({ queryFn: capture.fn })
@@ -143,28 +156,56 @@ describe('claudeCode', () => {
     expect(capture.last?.options?.env).toBeUndefined()
   })
 
-  it('attaches model and token meta from the SDK result message to the verdict', async () => {
+  it('records one usage row per model from the SDK modelUsage ledger', async () => {
+    // real results carry aggregate `usage` alongside `modelUsage`
     const client = claudeCode({
       queryFn: fakeQuery({
         result: '{"kind":"pass","reason":"ok"}',
-        usage: {
-          input_tokens: 1024,
-          output_tokens: 64,
-          cache_read_input_tokens: 8000,
-          cache_creation_input_tokens: 200,
+        usage: { input_tokens: 204, output_tokens: 19 },
+        modelUsage: {
+          'claude-haiku-4-5-20251001': {
+            inputTokens: 542,
+            outputTokens: 14,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+            webSearchRequests: 0,
+            costUSD: 0.000612,
+            contextWindow: 200000,
+            maxOutputTokens: 32000,
+          },
+          'claude-opus-4-8': {
+            inputTokens: 204,
+            outputTokens: 19,
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 4161,
+            webSearchRequests: 0,
+            costUSD: 0.001495,
+            contextWindow: 1000000,
+            maxOutputTokens: 64000,
+          },
         },
-        modelUsage: { 'claude-opus-4-7': { inputTokens: 1024 } },
       }),
     })
 
     const verdict = await client.reason('prompt')
 
     expect(verdict.meta).toEqual({
-      model: 'claude-opus-4-7',
-      inputTokens: 1024,
-      outputTokens: 64,
-      cacheReadInputTokens: 8000,
-      cacheCreationInputTokens: 200,
+      models: [
+        {
+          model: 'claude-haiku-4-5-20251001',
+          inputTokens: 542,
+          outputTokens: 14,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+        },
+        {
+          model: 'claude-opus-4-8',
+          inputTokens: 204,
+          outputTokens: 19,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 4161,
+        },
+      ],
     })
   })
 })
