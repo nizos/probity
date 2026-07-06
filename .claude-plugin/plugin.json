@@ -1,6 +1,6 @@
 {
   "name": "probity",
-  "description": "Process discipline for AI coding agents — TDD enforcement and policies.",
+  "description": "TDD enforcement and guardrails for Claude Code, Codex, and GitHub Copilot CLI.",
   "version": "1.8.1",
   "author": {
     "name": "Nizar Selander"

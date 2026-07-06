@@ -1,7 +1,7 @@
 {
   "name": "@nizos/probity",
   "version": "1.8.1",
-  "description": "Process discipline for AI coding agents.",
+  "description": "TDD enforcement and guardrails for Claude Code, Codex, and GitHub Copilot CLI.",
   "license": "MIT",
   "author": "Nizar Selander",
   "repository": {
