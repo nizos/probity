@@ -75,7 +75,7 @@
     "@ast-grep/lang-ruby": "^0.0.7",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
-    "@nizos/probity": "1.8.1",
+    "@nizos/probity": "1.9.0",
     "@types/node": "^25.6.0",
     "@types/picomatch": "^4.0.3",
     "eslint": "^10.2.1",
