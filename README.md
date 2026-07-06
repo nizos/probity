@@ -6,17 +6,17 @@
 [![Security](https://github.com/nizos/probity/actions/workflows/security.yml/badge.svg)](https://github.com/nizos/probity/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Probity blocks AI coding agents from breaking your rules — adding production code without a failing test, disabling lint rules instead of fixing the issue, reaching for `rm -rf` when something more targeted would do. It works through your agent's existing hook system.
+Probity forces AI coding agents to follow your rules. It hooks into your agent and checks every file write and shell command before it happens. When an action breaks a rule, Probity blocks it and tells the agent why.
+
+You can use it to enforce Test-Driven Development with the built-in rule, block destructive commands, or keep unwanted patterns out of your code. Writing your own rules takes a few lines of TypeScript, and one config works across most coding agents.
 
 <p align="center">
-  <img src="docs/assets/probity-tdd-demo.gif" alt="Probity blocking an over-implementation attempt" width="1200">
+  <img src="docs/assets/probity-tdd-demo.gif" alt="Probity enforcing TDD in a live agent session" width="1200">
 </p>
-
-Probity is the successor to [TDD Guard](https://github.com/nizos/tdd-guard) (~2k stars, ~200k downloads), now with one config across Claude Code, Codex, and GitHub Copilot CLI.
 
 ## How it works
 
-Each agent action (file write, shell command) fires a hook. Probity evaluates the action and either lets it through or sends back a reason and a path forward:
+When a rule is broken, the agent sees a reason and a path forward:
 
 ```
 Probity: you're adding production code before a failing test has been
@@ -27,7 +27,9 @@ and run it to a clean assertion failure before implementing only the
 minimum code to pass it.
 ```
 
-The agent receives the message and corrects course. Rules can be deterministic (string or regex match on commands or file content) or AI-validated. AI-validated rules reuse your agent's existing authentication, so Probity doesn't need its own API key.
+The agent corrects course and continues.
+
+Rules can be deterministic, matching commands or file content by string or regex, or AI-validated using official SDKs. Both kinds can read recent session activity, so actions are judged in context.
 
 ## Quick start
 
@@ -38,28 +40,13 @@ npm install -D @nizos/probity
 Create `probity.config.ts` at your project root:
 
 ```ts
-import {
-  defineConfig,
-  enforceTdd,
-  forbidCommandPattern,
-  forbidContentPattern,
-} from '@nizos/probity'
+import { defineConfig, enforceTdd } from '@nizos/probity'
 
 export default defineConfig({
   rules: [
-    forbidCommandPattern({
-      match: /rm\s+-rf/,
-      reason: '`rm -rf` is too broad; remove specific paths instead.',
-    }),
     {
       files: ['src/**', 'test/**'],
-      rules: [
-        enforceTdd(),
-        forbidContentPattern({
-          match: 'eslint-disable',
-          reason: 'Fix the lint violation rather than disabling the rule.',
-        }),
-      ],
+      rules: [enforceTdd()],
     },
   ],
 })
@@ -69,13 +56,11 @@ Then [wire it into your agent](docs/setup.md). One-time setup per agent.
 
 ## Built-in rules
 
-- **`enforceTdd()`**: enforces the TDD cycle — failing test first, minimal implementation, refactor on green. Reads recent session activity, so refactors and multi-step edits don't trip false positives.
-- **`forbidCommandPattern()`**: blocks shell commands by string or regex match. For destructive commands or steering agents to the right tool.
-- **`requireCommand()`**: gates a command on a prior one in session history (e.g., block commits unless tests have run since the last edit).
-- **`forbidContentPattern()`**: blocks file writes whose content matches a pattern (e.g., no `eslint-disable` or `setTimeout` in `src/`).
-- **`enforceFilenameCasing()`**: blocks writes whose filename does not match a configured casing style.
-
-Custom rules are a few lines of TypeScript. File scoping uses ESLint-style globs, including negations.
+- [`enforceTdd()`](docs/rules.md#enforcetdd): failing test first, minimal implementation, refactor on green
+- [`forbidCommandPattern()`](docs/rules.md#forbidcommandpattern): block shell commands by pattern
+- [`requireCommand()`](docs/rules.md#requirecommand): require a prior command (e.g. tests before commit)
+- [`forbidContentPattern()`](docs/rules.md#forbidcontentpattern): block writes containing a pattern
+- [`enforceFilenameCasing()`](docs/rules.md#enforcefilenamecasing): enforce a filename casing style
 
 ## FAQ
 
@@ -89,13 +74,14 @@ Probity reads each agent's session transcript directly, so there are no per-fram
 No. AI-validated rules use each vendor's official SDK and reuse whatever authentication your agent already has, so Probity doesn't require its own access or billing.
 
 **I'm already using TDD Guard. Should I switch?**
-Probity's TDD validation reads the session transcript, which lets it handle refactors and multi-step edits more reliably. It also supports more agents and is safe with parallel sessions. The one gap: TDD Guard has a lint integration that Probity doesn't yet match.
+Yes. Probity handles refactors and multi-step edits more reliably, is safe with parallel sessions, and supports more agents. See [Migrating from TDD Guard](docs/migrating-from-tdd-guard.md).
 
 ## Documentation
 
 - [Setup](docs/setup.md): wire Probity into your agent
 - [Configuration](docs/configuration.md): config file shape, path scoping, and custom rules
 - [Rules](docs/rules.md): built-in rules and their options
+- [Migrating from TDD Guard](docs/migrating-from-tdd-guard.md): steps and customization mapping
 
 ## Contributing
 
