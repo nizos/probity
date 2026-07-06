@@ -1,7 +1,7 @@
 {
   "name": "probity",
   "description": "TDD enforcement and guardrails for Claude Code, Codex, and GitHub Copilot CLI.",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "author": {
     "name": "Nizar Selander"
   },
