@@ -17,7 +17,6 @@ import {
   DEAD_HELPER_STILL_CALLED,
   EXISTING_TEST_CONTENT,
   MINIMAL_IMPL,
-  MINIMAL_IMPL_PLUS_UNUSED_IMPORT,
   MODULO_STUB_IMPL,
   OVER_IMPL,
   PLUS_ONE_TEST,
@@ -25,6 +24,12 @@ import {
   USED_FN_PRESENT,
   USED_FN_REMOVED,
 } from '../helpers/tdd-fixtures.js'
+import {
+  INVOICE_INLINE_ROUNDING,
+  INVOICE_INLINE_ROUNDING_WITH_IMPORT,
+  INVOICE_TOTAL_STUBBED,
+  INVOICE_TOTAL_STUBBED_WITH_IMPORT,
+} from '../helpers/invoice-fixtures.js'
 import {
   LEDGER_BORDERLINE_TESTS,
   LEDGER_BORDERLINE_TESTS_WITH_TRANSFER,
@@ -45,6 +50,8 @@ const T = {
   overImpl: 'test/fixtures/transcripts/tdd-over-impl.jsonl',
   noTestRun: 'test/fixtures/transcripts/tdd-no-test-run.jsonl',
   cycleCompleted: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
+  greenInSteps: 'test/fixtures/transcripts/invoice-green-in-steps.jsonl',
+  refactorInSteps: 'test/fixtures/transcripts/invoice-refactor-in-steps.jsonl',
   noisyBuriedFailure:
     'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
   priorBlock: 'test/fixtures/transcripts/tdd-prior-block-not-in-rules.jsonl',
@@ -145,13 +152,28 @@ describe.concurrent(
       expect(result.decision, result.reason).toBe('allow')
     })
 
-    it('allows the first write of a multi-step change', async ({
+    it('allows the first step of a multi-step green implementation', async ({
       runScenario,
     }) => {
+      // step 1 is just the helper import; the code using it comes next
       const result = await runScenario({
-        seed: MINIMAL_IMPL,
-        content: MINIMAL_IMPL_PLUS_UNUSED_IMPORT,
-        transcript: T.cycleCompleted,
+        filename: 'invoice.ts',
+        seed: INVOICE_TOTAL_STUBBED,
+        content: INVOICE_TOTAL_STUBBED_WITH_IMPORT,
+        transcript: T.greenInSteps,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('allows the first step of a multi-step refactor under green', async ({
+      runScenario,
+    }) => {
+      // step 1 is just the shared-helper import; call sites move next
+      const result = await runScenario({
+        filename: 'invoice.ts',
+        seed: INVOICE_INLINE_ROUNDING,
+        content: INVOICE_INLINE_ROUNDING_WITH_IMPORT,
+        transcript: T.refactorInSteps,
       })
       expect(result.decision, result.reason).toBe('allow')
     })
