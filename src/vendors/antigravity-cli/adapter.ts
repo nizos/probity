@@ -28,16 +28,15 @@ const replaceSchema = z.object({
 })
 
 const writeToolsSchema = z.discriminatedUnion('tool_name', [
-  runCommandSchema.transform(
-    (d): Action => ({ kind: 'command', command: d.tool_input.CommandLine }),
-  ),
-  writeFileSchema.transform(
-    (d): Action => ({
-      kind: 'write',
-      path: posixAbsolute(d.cwd, d.tool_input.TargetFile),
-      content: d.tool_input.CodeContent,
-    }),
-  ),
+  runCommandSchema.transform((d): Action => ({
+    kind: 'command',
+    command: d.tool_input.CommandLine,
+  })),
+  writeFileSchema.transform((d): Action => ({
+    kind: 'write',
+    path: posixAbsolute(d.cwd, d.tool_input.TargetFile),
+    content: d.tool_input.CodeContent,
+  })),
   replaceSchema.transform(async (d, ctx): Promise<Action> => {
     const path = posixAbsolute(d.cwd, d.tool_input.TargetFile)
     const result = await applyEdit({

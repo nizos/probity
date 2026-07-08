@@ -48,16 +48,15 @@ const replaceStringInFileSchema = z.object({
 export type WriteInput = z.input<typeof createFileSchema>
 
 const writeToolsSchema = z.discriminatedUnion('tool_name', [
-  runInTerminalSchema.transform(
-    (d): Action => ({ kind: 'command', command: d.tool_input.command }),
-  ),
-  createFileSchema.transform(
-    (d): Action => ({
-      kind: 'write',
-      path: posixAbsolute(d.cwd, d.tool_input.filePath),
-      content: d.tool_input.content,
-    }),
-  ),
+  runInTerminalSchema.transform((d): Action => ({
+    kind: 'command',
+    command: d.tool_input.command,
+  })),
+  createFileSchema.transform((d): Action => ({
+    kind: 'write',
+    path: posixAbsolute(d.cwd, d.tool_input.filePath),
+    content: d.tool_input.content,
+  })),
   replaceStringInFileSchema.transform(async (d, ctx): Promise<Action> => {
     const filePath = posixAbsolute(d.cwd, d.tool_input.filePath)
     const result = await applyEdit({

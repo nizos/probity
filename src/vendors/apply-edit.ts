@@ -8,8 +8,7 @@ export type ApplyEditOptions = {
 }
 
 export type ApplyEditResult =
-  | { ok: true; content: string }
-  | { ok: false; reason: string }
+  { ok: true; content: string } | { ok: false; reason: string }
 
 /**
  * Reads the file at `filePath` and applies the substitution requested

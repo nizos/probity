@@ -29,8 +29,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
 }
 
 type Result<T> =
-  | { kind: 'ok'; value: T }
-  | Extract<ParsedArgs, { kind: 'error' }>
+  { kind: 'ok'; value: T } | Extract<ParsedArgs, { kind: 'error' }>
 
 function requireAgent(argv: readonly string[]): Result<Vendor> {
   const idx = argv.indexOf('--agent')

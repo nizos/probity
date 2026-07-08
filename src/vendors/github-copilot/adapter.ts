@@ -55,16 +55,15 @@ const editSchema = z.object({
 export type WriteInput = z.input<typeof createSchema>
 
 const writeToolsSchema = z.discriminatedUnion('toolName', [
-  bashSchema.transform(
-    (d): Action => ({ kind: 'command', command: d.toolArgs.command }),
-  ),
-  createSchema.transform(
-    (d): Action => ({
-      kind: 'write',
-      path: posixAbsolute(d.cwd, d.toolArgs.path),
-      content: d.toolArgs.file_text,
-    }),
-  ),
+  bashSchema.transform((d): Action => ({
+    kind: 'command',
+    command: d.toolArgs.command,
+  })),
+  createSchema.transform((d): Action => ({
+    kind: 'write',
+    path: posixAbsolute(d.cwd, d.toolArgs.path),
+    content: d.toolArgs.file_text,
+  })),
   editSchema.transform(async (d, ctx): Promise<Action> => {
     const filePath = posixAbsolute(d.cwd, d.toolArgs.path)
     const result = await applyEdit({

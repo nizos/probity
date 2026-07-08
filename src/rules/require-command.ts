@@ -4,8 +4,7 @@ import { stringOrRegexMatches } from './utils/string-or-regex-matches.js'
 
 type CommandMatcher = { kind: 'command'; match: string | RegExp }
 type AfterFilter =
-  | { kind: 'write' }
-  | { kind: 'command'; match?: string | RegExp }
+  { kind: 'write' } | { kind: 'command'; match?: string | RegExp }
 
 type Options = {
   before: CommandMatcher

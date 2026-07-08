@@ -73,9 +73,10 @@ const notebookEditSchema = z.object({
 })
 
 const writeToolsSchema = z.discriminatedUnion('tool_name', [
-  bashSchema.transform(
-    (d): Action => ({ kind: 'command', command: d.tool_input.command }),
-  ),
+  bashSchema.transform((d): Action => ({
+    kind: 'command',
+    command: d.tool_input.command,
+  })),
   editSchema.transform(async (d, ctx): Promise<Action> => {
     const path = posixAbsolute(d.cwd, d.tool_input.file_path)
     const result = await applyEdit({
@@ -90,21 +91,16 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
     }
     return { kind: 'write', path, content: result.content }
   }),
-  writeSchema.transform(
-    (d): Action => ({
-      kind: 'write',
-      path: posixAbsolute(d.cwd, d.tool_input.file_path),
-      content: d.tool_input.content,
-    }),
-  ),
-  notebookEditSchema.transform(
-    (d): Action => ({
-      kind: 'write',
-      path: posixAbsolute(d.cwd, d.tool_input.notebook_path),
-      content:
-        d.tool_input.edit_mode === 'delete' ? '' : d.tool_input.new_source,
-    }),
-  ),
+  writeSchema.transform((d): Action => ({
+    kind: 'write',
+    path: posixAbsolute(d.cwd, d.tool_input.file_path),
+    content: d.tool_input.content,
+  })),
+  notebookEditSchema.transform((d): Action => ({
+    kind: 'write',
+    path: posixAbsolute(d.cwd, d.tool_input.notebook_path),
+    content: d.tool_input.edit_mode === 'delete' ? '' : d.tool_input.new_source,
+  })),
 ])
 
 /**

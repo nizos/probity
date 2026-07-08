@@ -8,8 +8,7 @@ import type { Action, Decision } from '../types.js'
  * was malformed (`ok: false`) and the adapter explains why.
  */
 export type ParseActionResult =
-  | { ok: true; actions: readonly Action[] }
-  | { ok: false; reason: string }
+  { ok: true; actions: readonly Action[] } | { ok: false; reason: string }
 
 /**
  * Wraps a Zod schema as the `parseAction` function the contract

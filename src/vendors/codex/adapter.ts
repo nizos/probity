@@ -50,9 +50,10 @@ const applyPatchSchema = z.object({
 export type WriteInput = z.input<typeof applyPatchSchema>
 
 const writeToolsSchema = z.discriminatedUnion('tool_name', [
-  bashSchema.transform(
-    (d): Action => ({ kind: 'command', command: d.tool_input.command }),
-  ),
+  bashSchema.transform((d): Action => ({
+    kind: 'command',
+    command: d.tool_input.command,
+  })),
   applyPatchSchema.transform((d, ctx): Action[] => {
     const files = splitPatchFiles(d.tool_input.command)
     if (files.length === 0) {

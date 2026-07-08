@@ -94,8 +94,7 @@ function neverCalledAgent(): Agent {
 
 function passAgent(
   verdict:
-    | { kind: 'pass'; reason: string }
-    | { kind: 'violation'; reason: string },
+    { kind: 'pass'; reason: string } | { kind: 'violation'; reason: string },
 ): Agent {
   return { reason: () => Promise.resolve(verdict) }
 }
