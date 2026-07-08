@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import type { PreToolUseHookOutput } from '@github/copilot/sdk'
 import { describe, expect, test as baseTest } from 'vitest'
 
 // Mute the experimental-feature warning that copilot's CLI subprocess emits via
@@ -11,6 +10,7 @@ process.env.NODE_NO_WARNINGS = '1'
 import { run } from '../../src/cli.js'
 import { enforceTdd } from '../../src/rules/enforce-tdd.js'
 import { parseAs } from '../../src/utils/parse-as.js'
+import type { ResponseShape } from '../../src/vendors/github-copilot/adapter.js'
 import { githubCopilot } from '../../src/vendors/github-copilot/agent.js'
 import { preflightAuth, skipIfUnauthed } from '../helpers/preflight-auth.js'
 import { makeSandboxDir } from '../helpers/sandbox.js'
@@ -150,7 +150,7 @@ async function runScenario(
       Promise.resolve({ rules: [enforceTdd({ fastPath: false })] }),
   })
   if (response === '') return { decision: 'allow' }
-  const parsed = parseAs<PreToolUseHookOutput>(response)
+  const parsed = parseAs<ResponseShape>(response)
   return {
     decision: parsed.permissionDecision ?? 'allow',
     ...(parsed.permissionDecisionReason !== undefined && {

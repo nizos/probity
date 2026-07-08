@@ -2,13 +2,13 @@ import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import type { PreToolUseHookOutput } from '@github/copilot/sdk'
 import { describe, expect, test as baseTest } from 'vitest'
 
 import { makeSandboxDir } from '../../../test/helpers/sandbox.js'
 import type { Action } from '../../types.js'
 import { parseAs } from '../../utils/parse-as.js'
 import type { ParseActionResult } from '../adapter.js'
+import type { ResponseShape } from './adapter.js'
 import { parseAction, sessionPath, toResponse } from './adapter.js'
 
 type Payload = {
@@ -62,7 +62,7 @@ describe('github-copilot adapter', () => {
   })
 
   it('builds a deny response with permissionDecision and reason', () => {
-    const response = parseAs<PreToolUseHookOutput>(
+    const response = parseAs<ResponseShape>(
       toResponse({ kind: 'block', reason: 'no failing test' }),
     )
 

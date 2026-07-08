@@ -1,9 +1,11 @@
+import type { PermissionHandler } from '@github/copilot-sdk'
+
 import type { Agent } from '../../types.js'
 import { toVerdict } from '../to-verdict.js'
 
 type SessionConfig = {
   availableTools?: string[]
-  onPermissionRequest?: unknown
+  onPermissionRequest?: PermissionHandler
 }
 
 type CopilotClientLike = {
@@ -25,7 +27,7 @@ type CopilotClientLike = {
 export function githubCopilot(
   deps: {
     client?: CopilotClientLike
-    onPermissionRequest?: unknown
+    onPermissionRequest?: PermissionHandler
   } = {},
 ): Agent {
   return {
@@ -35,7 +37,7 @@ export function githubCopilot(
         await client.start()
         const session = await client.createSession({
           availableTools: [],
-          onPermissionRequest,
+          ...(onPermissionRequest && { onPermissionRequest }),
         })
         const event = await session.sendAndWait({ prompt })
         await client.stop()
@@ -63,12 +65,17 @@ function buildMeta(outputTokens: number | undefined): CopilotMeta | undefined {
 
 async function resolveClient(deps: {
   client?: CopilotClientLike
-  onPermissionRequest?: unknown
-}): Promise<{ client: CopilotClientLike; onPermissionRequest?: unknown }> {
+  onPermissionRequest?: PermissionHandler
+}): Promise<{
+  client: CopilotClientLike
+  onPermissionRequest?: PermissionHandler
+}> {
   if (deps.client) {
     return {
       client: deps.client,
-      onPermissionRequest: deps.onPermissionRequest,
+      ...(deps.onPermissionRequest && {
+        onPermissionRequest: deps.onPermissionRequest,
+      }),
     }
   }
   const mod = await import('@github/copilot-sdk')

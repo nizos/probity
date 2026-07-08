@@ -10,9 +10,8 @@ import { applyEdit } from '../apply-edit.js'
 import { posixAbsolute } from '../posix-absolute.js'
 
 /**
- * The JSON shape `toResponse` emits on a block decision. Copilot's hook
- * format is documented but not shipped as a type by `@github/copilot/sdk`,
- * so we declare it alongside the function that produces it.
+ * Matches the SDK's `PreToolUseHookOutput`, which is not exported from
+ * the package root.
  */
 export type ResponseShape = {
   permissionDecision: string

@@ -1,3 +1,4 @@
+import type { PermissionHandler } from '@github/copilot-sdk'
 import { describe, it, expect } from 'vitest'
 
 import { githubCopilot } from './agent.js'
@@ -63,7 +64,7 @@ describe('githubCopilot', () => {
 
   it('forwards the onPermissionRequest handler from deps into createSession', async () => {
     const capture = captureCopilotClient()
-    const handler = () => ({ kind: 'allow' as const })
+    const handler: PermissionHandler = () => ({ kind: 'approve-once' })
     const client = githubCopilot({
       client: capture.client,
       onPermissionRequest: handler,
@@ -120,7 +121,7 @@ describe('githubCopilot', () => {
 
 type SessionConfig = {
   availableTools?: string[]
-  onPermissionRequest?: unknown
+  onPermissionRequest?: PermissionHandler
 }
 
 function captureCopilotClient() {
