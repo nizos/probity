@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createSandbox } from '../../../test/helpers/sandbox.js'
+import { getEditDelta } from '../../edit-delta.js'
 import type { Decision } from '../../types.js'
 import { parseAction, sessionPath, toResponse } from './adapter.js'
 
@@ -55,6 +56,12 @@ describe('antigravity-cli adapter', () => {
           content: 'def answer():\n    return 2\n',
         },
       ],
+    })
+    expect(result.ok && getEditDelta(result.actions[0]!)).toEqual({
+      oldString: '    return 1',
+      newString: '    return 2',
+      replaceAll: false,
+      occurrences: 1,
     })
   })
 

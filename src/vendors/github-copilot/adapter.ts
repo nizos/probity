@@ -3,6 +3,7 @@ import path from 'node:path'
 
 import { z } from 'zod'
 
+import { attachEditDelta } from '../../edit-delta.js'
 import type { Action, Decision } from '../../types.js'
 import { JsonString } from '../../utils/json-string.js'
 import { fromSchema, passthroughFor } from '../adapter.js'
@@ -74,7 +75,10 @@ const writeToolsSchema = z.discriminatedUnion('toolName', [
       ctx.addIssue({ code: 'custom', message: result.reason })
       return z.NEVER
     }
-    return { kind: 'write', path: filePath, content: result.content }
+    return attachEditDelta(
+      { kind: 'write', path: filePath, content: result.content },
+      result.delta,
+    )
   }),
 ])
 
