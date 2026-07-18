@@ -1,4 +1,7 @@
-import type { PermissionHandler } from '@github/copilot-sdk'
+import type {
+  PermissionHandler,
+  SystemMessageConfig,
+} from '@github/copilot-sdk'
 
 import type { Agent } from '../../types.js'
 import { toVerdict } from '../to-verdict.js'
@@ -6,6 +9,7 @@ import { toVerdict } from '../to-verdict.js'
 type SessionConfig = {
   availableTools?: string[]
   onPermissionRequest?: PermissionHandler
+  systemMessage?: SystemMessageConfig
 }
 
 type CopilotClientLike = {
@@ -30,27 +34,31 @@ export function githubCopilot(
     onPermissionRequest?: PermissionHandler
   } = {},
 ): Agent {
+  const reason = (prompt: string, systemMessage?: SystemMessageConfig) =>
+    toVerdict(async () => {
+      const { client, onPermissionRequest } = await resolveClient(deps)
+      await client.start()
+      const session = await client.createSession({
+        availableTools: [],
+        ...(onPermissionRequest && { onPermissionRequest }),
+        ...(systemMessage && { systemMessage }),
+      })
+      const event = await session.sendAndWait({ prompt })
+      await client.stop()
+      if (!event) {
+        throw new Error(
+          'no response from copilot: sendAndWait returned undefined',
+        )
+      }
+      const meta = buildMeta(event.data.outputTokens)
+      return meta
+        ? { text: event.data.content, meta }
+        : { text: event.data.content }
+    })
   return {
-    reason: (prompt) =>
-      toVerdict(async () => {
-        const { client, onPermissionRequest } = await resolveClient(deps)
-        await client.start()
-        const session = await client.createSession({
-          availableTools: [],
-          ...(onPermissionRequest && { onPermissionRequest }),
-        })
-        const event = await session.sendAndWait({ prompt })
-        await client.stop()
-        if (!event) {
-          throw new Error(
-            'no response from copilot: sendAndWait returned undefined',
-          )
-        }
-        const meta = buildMeta(event.data.outputTokens)
-        return meta
-          ? { text: event.data.content, meta }
-          : { text: event.data.content }
-      }),
+    reason,
+    reasonWithSystem: ({ system, prompt }) =>
+      reason(prompt, { mode: 'append', content: system }),
   }
 }
 
