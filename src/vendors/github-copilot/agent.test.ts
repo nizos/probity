@@ -44,6 +44,33 @@ describe('githubCopilot', () => {
     expect(capture.lastSessionConfig?.availableTools).toEqual([])
   })
 
+  it('appends stable instructions without replacing SDK guardrails', async () => {
+    const capture = captureCopilotClient()
+    const client = githubCopilot({ client: capture.client })
+
+    await client.reasonWithSystem?.({
+      system: 'STABLE_TDD_INSTRUCTIONS',
+      prompt: 'DYNAMIC_WRITE_EVIDENCE',
+    })
+
+    expect(capture.lastSessionConfig?.systemMessage).toEqual({
+      mode: 'append',
+      content: 'STABLE_TDD_INSTRUCTIONS',
+    })
+    expect(capture.lastSendAndWaitOptions?.prompt).toBe(
+      'DYNAMIC_WRITE_EVIDENCE',
+    )
+  })
+
+  it('leaves the system message unset for existing direct reason calls', async () => {
+    const capture = captureCopilotClient()
+    const client = githubCopilot({ client: capture.client })
+
+    await client.reason('combined prompt')
+
+    expect(capture.lastSessionConfig?.systemMessage).toBeUndefined()
+  })
+
   it('calls client.start() before creating the session', async () => {
     const capture = captureCopilotClient()
     const client = githubCopilot({ client: capture.client })
@@ -122,6 +149,7 @@ describe('githubCopilot', () => {
 type SessionConfig = {
   availableTools?: string[]
   onPermissionRequest?: PermissionHandler
+  systemMessage?: { mode: 'append'; content: string }
 }
 
 function captureCopilotClient() {
