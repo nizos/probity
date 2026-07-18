@@ -1,10 +1,14 @@
 import { readFileSync } from 'node:fs'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, onTestFinished } from 'vitest'
 
 import { failClosedResponse, run, type RunResult, type Vendor } from './cli.js'
 import type { Config } from './config.js'
 import type { Agent, SessionEvent } from './types.js'
+import { enforceTdd } from './rules/enforce-tdd.js'
 import { enforceFilenameCasing } from './rules/enforce-filename-casing.js'
 import { forbidContentPattern } from './rules/forbid-content-pattern.js'
 import type { FileContent, Rule } from './rules/contract.js'
@@ -166,6 +170,49 @@ describe('cli', () => {
 
     expect(captured).toBeDefined()
     expect(captured?.kind).toBe('present')
+  })
+
+  it('preserves a large Edit delta through parsing and dispatch while other rules still receive the full post-image', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'probity-cli-edit-delta-'))
+    onTestFinished(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+    const filePath = path.join(dir, 'large.ts')
+    const unchanged = 'UNCHANGED_CLI_CONTEXT\n'.repeat(10_000)
+    await writeFile(filePath, `${unchanged}oldName()${unchanged}`)
+    let capturedContent = ''
+    let capturedPrompt = ''
+    const captureContent: Rule = (action) => {
+      if (action.kind === 'write') capturedContent = action.content
+      return Promise.resolve({ kind: 'pass' })
+    }
+    const agent: Agent = {
+      reason: (prompt) => {
+        capturedPrompt = prompt
+        return Promise.resolve({ kind: 'pass', reason: '' })
+      },
+    }
+    const payload = JSON.stringify({
+      cwd: dir,
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: filePath,
+        old_string: 'oldName()',
+        new_string: 'newName()',
+      },
+    })
+
+    await setup({
+      payload,
+      config: { rules: [captureContent, enforceTdd()], ai: agent },
+    })
+
+    expect(capturedContent).toContain('UNCHANGED_CLI_CONTEXT')
+    expect(capturedContent).toContain('newName()')
+    expect(capturedPrompt).toContain('oldName()')
+    expect(capturedPrompt).toContain('newName()')
+    expect(capturedPrompt).not.toContain('UNCHANGED_CLI_CONTEXT')
+    expect(capturedPrompt.length).toBeLessThan(10_000)
   })
 
   it('captures agent calls a rule makes onto the trace entry as agentCalls with the full Verdict embedded', async () => {

@@ -6,6 +6,7 @@ import type { PreToolUseHookSpecificOutput } from '@anthropic-ai/claude-agent-sd
 import { describe, expect, test as baseTest } from 'vitest'
 
 import { makeSandboxDir } from '../../../test/helpers/sandbox.js'
+import { getEditDelta } from '../../edit-delta.js'
 import type { Action } from '../../types.js'
 import { parseAs } from '../../utils/parse-as.js'
 import type { ParseActionResult } from '../adapter.js'
@@ -136,6 +137,12 @@ describe('github-copilot-chat adapter', () => {
           content: 'before\nREPLACED\nafter\n',
         },
       ],
+    })
+    expect(result.ok && getEditDelta(result.actions[0]!)).toEqual({
+      oldString: 'MARKER',
+      newString: 'REPLACED',
+      replaceAll: false,
+      occurrences: 1,
     })
   })
 
