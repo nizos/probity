@@ -2,7 +2,11 @@ import type { Action, RawSessionEvent, RuleResult } from '../types.js'
 import type { FileContent, RuleContext } from './contract.js'
 import { countNewTestNodes } from './matchers/count-new-test-nodes.js'
 import { inferLanguage } from './matchers/languages/index.js'
-import { trimHistory, type HistoryWindow } from './trim-history.js'
+import {
+  formatHistoryInput,
+  trimHistory,
+  type HistoryWindow,
+} from './trim-history.js'
 
 const DEFAULT_MAX_EVENTS = 10
 const DEFAULT_MAX_CONTENT_CHARS = 6000
@@ -170,8 +174,7 @@ function formatEvent(event: RawSessionEvent): string {
 }
 
 function formatInput(input: unknown): string {
-  if (typeof input === 'string') return input
-  return JSON.stringify(input)
+  return formatHistoryInput(input)
 }
 
 function buildPrompt(
@@ -229,7 +232,7 @@ function formatBefore(before: FileContent): string {
  *   it too high crowds the prompt and the model may miss recent
  *   events or stop following the response format.
  * @param options.maxContentChars — truncate any single event's
- *   text/output longer than this, with a head + tail + marker
+ *   text, structured input, or output longer than this, with a head + tail + marker
  *   replacement (default 6000). Raise it when working with large
  *   files so context isn't lopped mid-region; same caveat as
  *   maxEvents about over-stuffing the prompt.
