@@ -31,6 +31,17 @@ describe('probity cli (integration)', () => {
     expect(decodeResponse('claude-code', getRawStdout()).decision).toBe('allow')
   })
 
+  it('accepts current GitHub Copilot camelCase payloads with object toolArgs and extra descriptions', async () => {
+    const { getRawStdout } = await setup({
+      payloadFixture:
+        'test/fixtures/github-copilot/pre-bash-npm-test-object.json',
+      config: CONFIG_FIXTURE,
+      vendor: 'github-copilot',
+    })
+
+    expect(getRawStdout()).toBe('')
+  })
+
   it('loads the config from --config <path> instead of discovering one', async () => {
     const { getRawStdout } = await setup({
       payloadFixture: 'test/fixtures/claude-code/write-kebab-case.json',

@@ -14,7 +14,7 @@ import { parseAction, sessionPath, toResponse } from './adapter.js'
 type Payload = {
   cwd?: string
   toolName: string
-  toolArgs: string
+  toolArgs: unknown
 }
 
 const it = baseTest
@@ -56,9 +56,25 @@ describe('github-copilot adapter', () => {
 
   it('extracts the command text from a bash payload', async () => {
     const { action, payload } = await setup('pre-bash-npm-test.json')
-    const toolArgs = parseAs<{ command: string }>(payload.toolArgs)
+    const toolArgs = parseLegacyArgs<{ command: string }>(payload.toolArgs)
 
     expect(action).toMatchObject({ command: toolArgs.command })
+  })
+
+  it('accepts current object-valued bash toolArgs with an extra description', async () => {
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      toolName: 'bash',
+      toolArgs: {
+        command: 'npm test',
+        description: 'Run the test suite',
+      },
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      actions: [{ kind: 'command', command: 'npm test' }],
+    })
   })
 
   it('builds a deny response with permissionDecision and reason', () => {
@@ -76,10 +92,10 @@ describe('github-copilot adapter', () => {
     expect(toResponse({ kind: 'allow' })).toBe('')
   })
 
-  it('rejects a payload whose toolArgs is not a JSON-encoded string', async () => {
+  it('rejects malformed known-tool payloads', async () => {
     const result = await parseAction({
       toolName: 'bash',
-      toolArgs: 'not-valid-json',
+      toolArgs: { description: 'missing command' },
     })
 
     expect(result.ok).toBe(false)
@@ -93,11 +109,35 @@ describe('github-copilot adapter', () => {
 
   it('maps create payload path (absolute POSIX) + file_text onto the write action', async () => {
     const { action, payload } = await setup('pre-create-new-test.json')
-    const args = parseAs<{ path: string; file_text: string }>(payload.toolArgs)
+    const args = parseLegacyArgs<{ path: string; file_text: string }>(
+      payload.toolArgs,
+    )
 
     expect(action).toMatchObject({
       path: '/workspaces/probity/test/calculator.test.ts',
       content: args.file_text,
+    })
+  })
+
+  it('accepts current object-valued create toolArgs', async () => {
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      toolName: 'create',
+      toolArgs: {
+        path: 'test/calculator.test.ts',
+        file_text: 'x',
+      },
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      actions: [
+        {
+          kind: 'write',
+          path: '/workspaces/probity/test/calculator.test.ts',
+          content: 'x',
+        },
+      ],
     })
   })
 
@@ -114,6 +154,31 @@ describe('github-copilot adapter', () => {
         old_str: 'MARKER',
         new_str: 'REPLACED',
       }),
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      actions: [
+        {
+          kind: 'write',
+          path: filePath,
+          content: 'before\nREPLACED\nafter\n',
+        },
+      ],
+    })
+  })
+
+  it('accepts current object-valued edit toolArgs', async ({ makeFile }) => {
+    const filePath = await makeFile('before\nMARKER\nafter\n')
+
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      toolName: 'edit',
+      toolArgs: {
+        path: filePath,
+        old_str: 'MARKER',
+        new_str: 'REPLACED',
+      },
     })
 
     expect(result).toEqual({
@@ -261,4 +326,11 @@ function ok(result: ParseActionResult): Action {
     throw new Error(`expected exactly one action, got ${result.actions.length}`)
   }
   return result.actions[0]!
+}
+
+function parseLegacyArgs<T>(toolArgs: unknown): T {
+  if (typeof toolArgs !== 'string') {
+    throw new Error('expected legacy JSON-string toolArgs')
+  }
+  return parseAs<T>(toolArgs)
 }

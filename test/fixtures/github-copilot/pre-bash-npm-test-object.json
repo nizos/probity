@@ -1,0 +1,10 @@
+{
+  "sessionId": "56c13b41-a711-40e3-a16d-e911c1340791",
+  "timestamp": 1777047490575,
+  "cwd": "/workspaces/probity",
+  "toolName": "bash",
+  "toolArgs": {
+    "command": "npm test",
+    "description": "Run tests with npm test"
+  }
+}

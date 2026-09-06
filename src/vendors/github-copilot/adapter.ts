@@ -20,26 +20,37 @@ export type ResponseShape = {
 
 const bashSchema = z.object({
   toolName: z.literal('bash'),
-  toolArgs: JsonString.pipe(z.object({ command: z.string() })),
+  toolArgs: z.union([
+    z.object({ command: z.string() }),
+    JsonString.pipe(z.object({ command: z.string() })),
+  ]),
 })
 
 const createSchema = z.object({
   toolName: z.literal('create'),
-  toolArgs: JsonString.pipe(
+  toolArgs: z.union([
     z.object({ path: z.string(), file_text: z.string() }),
-  ),
+    JsonString.pipe(z.object({ path: z.string(), file_text: z.string() })),
+  ]),
   cwd: z.string().min(1),
 })
 
 const editSchema = z.object({
   toolName: z.literal('edit'),
-  toolArgs: JsonString.pipe(
+  toolArgs: z.union([
     z.object({
       path: z.string(),
       old_str: z.string(),
       new_str: z.string(),
     }),
-  ),
+    JsonString.pipe(
+      z.object({
+        path: z.string(),
+        old_str: z.string(),
+        new_str: z.string(),
+      }),
+    ),
+  ]),
   cwd: z.string().min(1),
 })
 
@@ -47,9 +58,8 @@ const editSchema = z.object({
  * The validated payload shape for a `create` tool call. Intersect with
  * the ceremony fields Copilot sends (sessionId, timestamp) when
  * stamping out test payloads so the validated portion tracks the
- * adapter automatically. `toolArgs` arrives as a JSON string on the
- * wire (parsed by `JsonString.pipe`), so the input shape carries the
- * unparsed string form.
+ * adapter automatically. `toolArgs` accepts both the current object form
+ * and the legacy JSON-string form.
  */
 export type WriteInput = z.input<typeof createSchema>
 
