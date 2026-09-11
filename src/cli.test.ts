@@ -151,7 +151,7 @@ describe('cli', () => {
     expect(captured?.some((e) => e.kind === 'command')).toBe(true)
   })
 
-  it('passes Codex Vitest text-block output to enforceTdd as red evidence', async () => {
+  it('passes Codex text-block tool output to enforceTdd as red evidence', async () => {
     let capturedPrompt = ''
     const redAwareAgent: Agent = {
       reason: (prompt) => {
@@ -161,7 +161,7 @@ describe('cli', () => {
           /Test Files\s+1 failed/.test(prompt)
         return Promise.resolve({
           kind: observedRed ? 'pass' : 'violation',
-          reason: observedRed ? '' : 'Vitest red evidence was not observed',
+          reason: observedRed ? '' : 'red evidence was not observed',
         })
       },
     }

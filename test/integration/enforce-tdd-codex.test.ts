@@ -49,7 +49,7 @@ const it = baseTest
 describe.concurrent(
   'enforce-tdd + codex',
   () => {
-    it('uses Vitest text-block output as red evidence for minimal implementation', async ({
+    it('allows clean TDD with minimal implementation', async ({
       runScenario,
     }) => {
       const result = await runScenario({
