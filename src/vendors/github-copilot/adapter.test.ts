@@ -92,10 +92,19 @@ describe('github-copilot adapter', () => {
     expect(toResponse({ kind: 'allow' })).toBe('')
   })
 
-  it('rejects malformed known-tool payloads', async () => {
+  it('rejects a known-tool payload whose object toolArgs is missing a field', async () => {
     const result = await parseAction({
       toolName: 'bash',
       toolArgs: { description: 'missing command' },
+    })
+
+    expect(result.ok).toBe(false)
+  })
+
+  it('rejects a known-tool payload whose toolArgs is not a JSON-encoded string', async () => {
+    const result = await parseAction({
+      toolName: 'bash',
+      toolArgs: 'not-valid-json',
     })
 
     expect(result.ok).toBe(false)
