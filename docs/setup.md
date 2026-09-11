@@ -96,13 +96,6 @@ Note the use of `bash` and `powershell` in this example, select the shell option
 
 Every tool call fires the hook; probity's rules pass through non-write actions. Probity accepts Copilot's `bash`, `create`, and `edit` tool payloads.
 
-Current camelCase Copilot payloads send `toolArgs` as an object. Probity
-accepts that object form and the legacy JSON-string form for `bash`,
-`create`, and `edit`; malformed payloads for those known tools fail closed,
-while unknown tools pass through. This compatibility applies to the
-camelCase payload fields (`sessionId`, `toolName`, and `toolArgs`) used by
-current Copilot CLI hooks.
-
 Further reading: [GitHub Copilot's hooks reference](https://docs.github.com/en/copilot/reference/hooks-configuration).
 
 ## CLI
