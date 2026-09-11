@@ -4,9 +4,9 @@ import path from 'node:path'
 import { z } from 'zod'
 
 import type { Action, Decision } from '../../types.js'
-import { JsonString } from '../../utils/json-string.js'
 import { fromSchema, passthroughFor } from '../adapter.js'
 import { applyEdit } from '../apply-edit.js'
+import { objectOrJsonString } from '../object-or-json-string.js'
 import { posixAbsolute } from '../posix-absolute.js'
 
 /**
@@ -20,37 +20,26 @@ export type ResponseShape = {
 
 const bashSchema = z.object({
   toolName: z.literal('bash'),
-  toolArgs: z.union([
-    z.object({ command: z.string() }),
-    JsonString.pipe(z.object({ command: z.string() })),
-  ]),
+  toolArgs: objectOrJsonString(z.object({ command: z.string() })),
 })
 
 const createSchema = z.object({
   toolName: z.literal('create'),
-  toolArgs: z.union([
+  toolArgs: objectOrJsonString(
     z.object({ path: z.string(), file_text: z.string() }),
-    JsonString.pipe(z.object({ path: z.string(), file_text: z.string() })),
-  ]),
+  ),
   cwd: z.string().min(1),
 })
 
 const editSchema = z.object({
   toolName: z.literal('edit'),
-  toolArgs: z.union([
+  toolArgs: objectOrJsonString(
     z.object({
       path: z.string(),
       old_str: z.string(),
       new_str: z.string(),
     }),
-    JsonString.pipe(
-      z.object({
-        path: z.string(),
-        old_str: z.string(),
-        new_str: z.string(),
-      }),
-    ),
-  ]),
+  ),
   cwd: z.string().min(1),
 })
 
