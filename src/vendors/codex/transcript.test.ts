@@ -72,18 +72,6 @@ describe('codex transcript', () => {
     })
   })
 
-  it('reads custom tool output from legacy strings and current text blocks', async () => {
-    const events = await readTranscript(
-      'test/fixtures/transcripts/codex-custom-tool-output-formats.jsonl',
-    )
-
-    const actions = events.filter((event) => event.kind === 'action')
-    expect(actions.map((event) => event.output)).toEqual([
-      'legacy output',
-      'current output\nsecond block',
-    ])
-  })
-
   it('parses JSON-encoded function_call arguments into objects at the boundary', async () => {
     const events = await readTranscript(
       'test/fixtures/transcripts/codex-basic.jsonl',

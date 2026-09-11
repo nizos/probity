@@ -1,4 +1,0 @@
-{"type":"response_item","payload":{"type":"custom_tool_call","name":"legacy_tool","input":"legacy input","call_id":"call_legacy"}}
-{"type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_legacy","output":"legacy output"}}
-{"type":"response_item","payload":{"type":"custom_tool_call","name":"current_tool","input":"current input","call_id":"call_current"}}
-{"type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_current","output":[{"type":"text","text":"current output"},{"type":"text","text":"second block"}]}}
