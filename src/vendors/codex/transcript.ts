@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { RawSessionEvent } from '../../types.js'
 import { JsonString } from '../../utils/json-string.js'
 import { readJsonl } from '../../utils/read-jsonl.js'
+import { StringOrTextBlocks } from '../string-or-text-blocks.js'
 
 const UserMessageSchema = z.object({
   type: z.literal('response_item'),
@@ -42,23 +43,12 @@ const CustomToolCallSchema = z.object({
   }),
 })
 
-const CustomToolOutputSchema = z
-  .union([
-    z.string(),
-    z.array(z.object({ type: z.literal('text'), text: z.string() })),
-  ])
-  .transform((output) =>
-    typeof output === 'string'
-      ? output
-      : output.map((block) => block.text).join('\n'),
-  )
-
 const CustomToolCallOutputSchema = z.object({
   type: z.literal('response_item'),
   payload: z.object({
     type: z.literal('custom_tool_call_output'),
     call_id: z.string(),
-    output: CustomToolOutputSchema,
+    output: StringOrTextBlocks,
   }),
 })
 

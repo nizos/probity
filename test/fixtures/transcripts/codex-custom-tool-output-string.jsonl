@@ -1,0 +1,2 @@
+{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec","input":"const r = await tools.exec_command(...)","call_id":"call_string"}}
+{"type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_string","output":"expected output to include foo"}}
