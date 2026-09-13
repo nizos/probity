@@ -31,6 +31,10 @@ import {
   INVOICE_TOTAL_STUBBED_WITH_IMPORT,
 } from '../helpers/invoice-fixtures.js'
 import {
+  HARNESS_SELECTION_UNIMPORTED,
+  HARNESS_SELECTION_WITH_IMPORT,
+} from '../helpers/harness-fixtures.js'
+import {
   LEDGER_BORDERLINE_TESTS,
   LEDGER_BORDERLINE_TESTS_WITH_TRANSFER,
 } from '../helpers/ledger-fixtures.js'
@@ -51,6 +55,7 @@ const T = {
   noTestRun: 'test/fixtures/transcripts/tdd-no-test-run.jsonl',
   cycleCompleted: 'test/fixtures/transcripts/tdd-cycle-completed.jsonl',
   greenInSteps: 'test/fixtures/transcripts/invoice-green-in-steps.jsonl',
+  greenCodeFirst: 'test/fixtures/transcripts/harness-green-code-first.jsonl',
   refactorInSteps: 'test/fixtures/transcripts/invoice-refactor-in-steps.jsonl',
   noisyBuriedFailure:
     'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
@@ -161,6 +166,19 @@ describe.concurrent(
         seed: INVOICE_TOTAL_STUBBED,
         content: INVOICE_TOTAL_STUBBED_WITH_IMPORT,
         transcript: T.greenInSteps,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('allows an import-only write that completes code already on disk', async ({
+      runScenario,
+    }) => {
+      // the statement landed in an earlier allowed write; only its imports remain
+      const result = await runScenario({
+        filename: 'harness.ts',
+        seed: HARNESS_SELECTION_UNIMPORTED,
+        content: HARNESS_SELECTION_WITH_IMPORT,
+        transcript: T.greenCodeFirst,
       })
       expect(result.decision, result.reason).toBe('allow')
     })

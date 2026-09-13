@@ -298,6 +298,20 @@ describe('enforce-tdd', () => {
     expect(s.capturedPrompt).toMatch(/reason/i)
   })
 
+  it('tells the validator an import completing code already on disk is scaffolding, not grounds to re-judge that code', async () => {
+    const s = setup()
+
+    await s.rule(
+      writeAction('src/calc.ts', 'export const add = () => 0'),
+      s.ctx,
+    )
+
+    expect(s.capturedPrompt).toMatch(
+      /code already in the current file content/i,
+    )
+    expect(s.capturedPrompt).toMatch(/judged when it was\s+written/i)
+  })
+
   it('calls the AI for a single-test addition when fastPath is left at its default', async () => {
     const s = setup()
 
