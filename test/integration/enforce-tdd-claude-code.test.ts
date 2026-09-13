@@ -31,6 +31,10 @@ import {
   INVOICE_TOTAL_STUBBED_WITH_IMPORT,
 } from '../helpers/invoice-fixtures.js'
 import {
+  BANNER_TESTS,
+  BANNER_TESTS_WITH_CONTEXT_LABEL,
+} from '../helpers/banner-fixtures.js'
+import {
   LEDGER_BORDERLINE_TESTS,
   LEDGER_BORDERLINE_TESTS_WITH_TRANSFER,
 } from '../helpers/ledger-fixtures.js'
@@ -56,6 +60,7 @@ const T = {
     'test/fixtures/transcripts/tdd-noisy-buried-failure.jsonl',
   priorBlock: 'test/fixtures/transcripts/tdd-prior-block-not-in-rules.jsonl',
   removeUsedFn: 'test/fixtures/transcripts/tdd-remove-used-fn.jsonl',
+  redAfterDeletion: 'test/fixtures/transcripts/tdd-red-after-deletion.jsonl',
   refactorSkipped: 'test/fixtures/transcripts/summarize-refactor-skipped.jsonl',
   borderlineRefactor:
     'test/fixtures/transcripts/ledger-borderline-refactor.jsonl',
@@ -126,6 +131,18 @@ describe.concurrent(
         seed: EXISTING_TEST_CONTENT,
         content: PLUS_ONE_TEST,
         transcript: T.cycleCompleted,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('allows a new test after the obsolete one was deleted and the suite went green', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        filename: 'banner.test.ts',
+        seed: BANNER_TESTS,
+        content: BANNER_TESTS_WITH_CONTEXT_LABEL,
+        transcript: T.redAfterDeletion,
       })
       expect(result.decision, result.reason).toBe('allow')
     })
