@@ -20,6 +20,18 @@ Use meaningful titles that describe what the change accomplishes. The descriptio
 
 Implementation must be test driven. Run `npm run checks` (lint, format, typecheck, tests, build).
 
+### Canary Releases
+
+Successful builds from `main` are published to npm under the `canary` dist-tag. Install the latest unreleased build with:
+
+```bash
+npm install -D @nizos/probity@canary
+```
+
+Canary builds are prereleases intended for testing and development. Stable releases remain available through the default `latest` dist-tag.
+
+The canary workflow uses npm trusted publishing with GitHub Actions. The package maintainer must configure the `nizos/probity` repository and `.github/workflows/canary.yml` as a trusted publisher in the npm package settings before enabling publication.
+
 ### Commit Messages
 
 Use conventional commits and communicate the why, not just what. Focus on the reasoning behind changes rather than describing what was changed. Commits should be atomic and pair tests with the implementation they verify.

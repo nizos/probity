@@ -1,0 +1,52 @@
+name: Canary Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: canary-release
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish canary
+    if: github.repository == 'nizos/probity' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run checks
+        run: npm run checks
+
+      - name: Set canary version
+        run: |
+          canary_version=$(node -e '
+            const { version } = require("./package.json");
+            const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+            if (!match) throw new Error(`Expected a stable package version, got ${version}`);
+            const [, major, minor] = match;
+            console.log(`${major}.${Number(minor) + 1}.0-canary.${process.env.GITHUB_RUN_NUMBER}`);
+          ')
+          npm version "$canary_version" --no-git-tag-version --ignore-scripts
+          echo "Publishing @nizos/probity@$canary_version"
+
+      - name: Publish canary
+        run: npm publish --tag canary
