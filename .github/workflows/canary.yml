@@ -5,30 +5,30 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write
+permissions: {}
 
 concurrency:
   group: canary-release
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish canary
+  build:
+    name: Build canary
     if: github.repository == 'nizos/probity' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -48,5 +48,38 @@ jobs:
           npm version "$canary_version" --no-git-tag-version --ignore-scripts
           echo "Publishing @nizos/probity@$canary_version"
 
+      - name: Pack canary
+        run: npm pack --pack-destination "${{ runner.temp }}"
+
+      - name: Upload canary package
+        uses: actions/upload-artifact@v4
+        with:
+          name: probity-canary
+          path: ${{ runner.temp }}/nizos-probity-*.tgz
+          if-no-files-found: error
+
+  publish:
+    name: Publish canary
+    needs: build
+    if: github.repository == 'nizos/probity' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: npm-canary
+    permissions:
+      id-token: write
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Download canary package
+        uses: actions/download-artifact@v5
+        with:
+          name: probity-canary
+          path: package
+
       - name: Publish canary
-        run: npm publish --tag canary
+        run: npm publish package/*.tgz --tag canary
