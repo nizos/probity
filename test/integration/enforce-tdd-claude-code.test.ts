@@ -63,6 +63,8 @@ const T = {
   overrideAgentFeedback:
     'test/fixtures/transcripts/override-agent-feedback.jsonl',
   overrideUser: 'test/fixtures/transcripts/override-user.jsonl',
+  subagentNoTestRun:
+    'test/fixtures/transcripts/tdd-subagent-no-test-run/main.jsonl',
 }
 
 type ScenarioInput = {
@@ -258,6 +260,16 @@ describe.concurrent(
         seed: RESOLVE_BEFORE,
         content: RESOLVE_AFTER,
         transcript: T.overrideAgentFeedback,
+      })
+      expect(result.decision, result.reason).toBe('allow')
+    })
+
+    it('allows a minimal implementation when the failing test only ran inside a forked subagent', async ({
+      runScenario,
+    }) => {
+      const result = await runScenario({
+        content: MINIMAL_IMPL,
+        transcript: T.subagentNoTestRun,
       })
       expect(result.decision, result.reason).toBe('allow')
     })
