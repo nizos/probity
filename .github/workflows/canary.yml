@@ -180,4 +180,4 @@ jobs:
           fi
 
       - name: Publish canary
-        run: npm publish package/*.tgz --tag canary
+        run: npm publish ./package/*.tgz --tag canary
