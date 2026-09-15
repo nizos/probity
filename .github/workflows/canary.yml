@@ -108,5 +108,34 @@ jobs:
           name: probity-canary
           path: package
 
+      - name: Verify canary version
+        shell: bash
+        run: |
+          # Stop on errors, unset variables, and failed commands in pipelines.
+          set -euo pipefail
+
+          # The build job uploads one npm tarball under this directory.
+          tarball=$(find package -maxdepth 1 -type f -name 'nizos-probity-*.tgz' -print -quit)
+          if [[ -z "$tarball" ]]; then
+            echo "No canary tarball found"
+            exit 1
+          fi
+
+          # Read package.json from the archive without extracting or executing it.
+          version=$(tar -xOzf "$tarball" package/package.json | node -e '
+            let input = "";
+            process.stdin.on("data", chunk => { input += chunk; });
+            process.stdin.on("end", () => {
+              const { version } = JSON.parse(input);
+              process.stdout.write(version);
+            });
+          ')
+
+          # Never let this job publish a non-canary package under the canary tag.
+          if [[ "$version" != *-canary.* ]]; then
+            echo "Refusing to publish non-canary version: $version"
+            exit 1
+          fi
+
       - name: Publish canary
         run: npm publish package/*.tgz --tag canary
