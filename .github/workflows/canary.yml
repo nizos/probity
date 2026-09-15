@@ -9,7 +9,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: canary-release-${{ github.event.workflow_run.head_sha || github.sha }}
+  group: canary-release
   cancel-in-progress: false
 
 jobs:
