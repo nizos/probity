@@ -136,5 +136,5 @@ jobs:
             exit 1
           fi
 
-      - name: Publish canary
-        run: npm publish ./package/*.tgz --tag canary
+      - name: Stage canary
+        run: npm stage publish ./package/*.tgz --tag canary
