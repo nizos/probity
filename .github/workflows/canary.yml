@@ -51,6 +51,33 @@ jobs:
       - name: Pack canary
         run: npm pack --pack-destination "${{ runner.temp }}"
 
+      - name: Verify packed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          tarball=$(find "${{ runner.temp }}" -maxdepth 1 -type f -name 'nizos-probity-*.tgz' -print -quit)
+          if [[ -z "$tarball" ]]; then
+            echo "No canary tarball found"
+            exit 1
+          fi
+
+          unexpected_files=()
+          while IFS= read -r entry; do
+            case "$entry" in
+              package/|package/dist/|package/dist/*|package/package.json|package/README.md|package/LICENSE)
+                ;;
+              *)
+                unexpected_files+=("$entry")
+                ;;
+            esac
+          done < <(tar -tzf "$tarball")
+
+          if ((${#unexpected_files[@]} > 0)); then
+            echo "Unexpected files in $tarball:"
+            printf '  %s\n' "${unexpected_files[@]}"
+            exit 1
+          fi
+
       - name: Upload canary package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
