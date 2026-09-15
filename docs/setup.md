@@ -98,6 +98,28 @@ Every tool call fires the hook; probity's rules pass through non-write actions. 
 
 Further reading: [GitHub Copilot's hooks reference](https://docs.github.com/en/copilot/reference/hooks-configuration).
 
+## OpenCode
+
+Install the `opencode-probity` plugin to wire probity into OpenCode's `tool.execute.before` hook:
+
+```
+npm install -D opencode-probity
+```
+
+Then add the plugin to your OpenCode configuration (`opencode.json` or `opencode.jsonc`):
+
+```json
+{
+  "plugins": {
+    "probity": {
+      "package": "opencode-probity"
+    }
+  }
+}
+```
+
+The plugin intercepts `Bash`, `Write`, and `Edit` tool calls and evaluates them against your `probity.config.ts` rules. It spawns `npx @nizos/probity --agent opencode` under the hood.
+
 ## CLI
 
 The `probity` bin is what each vendor's hook command invokes. You can also run it directly — for testing rule changes, scripting CI checks, or pointing at a config that lives outside the repo.
@@ -110,7 +132,7 @@ The bin reads a hook payload from stdin (capped at 10 MiB) and writes the vendor
 
 ### Options
 
-- `--agent <vendor>` — Required. One of `claude-code`, `codex`, or `github-copilot`.
+- `--agent <vendor>` — Required. One of `claude-code`, `codex`, `github-copilot`, or `opencode`.
 - `--config <path>` — Override the auto-discovered config file. See [Configuration](configuration.md#overriding-the-file-location).
 - `--debug <path>` — Log each invocation's payload and response to `<path>` as JSONL for debugging.
 - `--version` — Print the package version.

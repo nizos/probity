@@ -83,6 +83,7 @@
     "eslint-config-prettier": "^10.1.8",
     "fs-fixture": "^2.13.0",
     "husky": "^9.1.7",
+    "jscpd": "^5.0.16",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
@@ -119,6 +120,7 @@
     "@ast-grep/napi": "^0.42.1",
     "@github/copilot-sdk": "1.0.5",
     "@openai/codex-sdk": "0.153.0",
+    "@opencode-ai/sdk": "^1.0.85",
     "jiti": "^2.6.1",
     "picomatch": "^4.0.4",
     "zod": "^4.3.6"

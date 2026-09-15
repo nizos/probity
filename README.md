@@ -67,7 +67,7 @@ Then [wire it into your agent](docs/setup.md). One-time setup per agent.
 ## FAQ
 
 **Does it work with my agent?**
-Probity currently works with Claude Code, Codex, and GitHub Copilot CLI, with more coming.
+Probity currently works with Claude Code, Codex, GitHub Copilot CLI, and OpenCode.
 
 **Does it work with my language?**
 Probity reads each agent's session transcript directly, so there are no per-framework reporters to install. It works with any language and test runner that your agent can work with.

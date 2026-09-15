@@ -3,6 +3,7 @@ import { parseAs } from '../../src/utils/parse-as.js'
 import type { ResponseShape as ClaudeCodeResponse } from '../../src/vendors/claude-code/adapter.js'
 import type { ResponseShape as CodexResponse } from '../../src/vendors/codex/adapter.js'
 import type { ResponseShape as CopilotResponse } from '../../src/vendors/github-copilot/adapter.js'
+import type { ResponseShape as OpenCodeResponse } from '../../src/vendors/opencode/adapter.js'
 
 export type DecodedResponse = { decision: 'allow' | 'deny'; reason?: string }
 
@@ -21,6 +22,7 @@ const decoders: Record<Vendor, (stdout: string) => DecodedResponse> = {
   'github-copilot-chat': decodeClaudeShape,
   codex: decodeCodexShape,
   'github-copilot': decodeCopilotShape,
+  opencode: decodeOpenCodeShape,
 }
 
 function decodeClaudeShape(stdout: string): DecodedResponse {
@@ -48,5 +50,13 @@ function decodeCopilotShape(stdout: string): DecodedResponse {
     ...(out.permissionDecisionReason !== undefined && {
       reason: out.permissionDecisionReason,
     }),
+  }
+}
+
+function decodeOpenCodeShape(stdout: string): DecodedResponse {
+  const out = parseAs<OpenCodeResponse>(stdout)
+  return {
+    decision: out.decision === 'block' ? 'deny' : 'allow',
+    ...(out.reason !== undefined && { reason: out.reason }),
   }
 }

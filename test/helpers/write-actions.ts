@@ -3,6 +3,7 @@ import type { WriteInput as ClaudeCodeWriteInput } from '../../src/vendors/claud
 import type { WriteInput as CodexWriteInput } from '../../src/vendors/codex/adapter.js'
 import type { WriteInput as CopilotChatWriteInput } from '../../src/vendors/github-copilot-chat/adapter.js'
 import type { WriteInput as CopilotWriteInput } from '../../src/vendors/github-copilot/adapter.js'
+import type { WriteInput as OpenCodeWriteInput } from '../../src/vendors/opencode/adapter.js'
 
 // Stub values used to satisfy each vendor's required hook-payload
 // fields. The bin reads them but doesn't gate on them; the exact
@@ -42,11 +43,18 @@ export type CopilotWriteAction = CopilotWriteInput & {
   timestamp: number
 }
 
+export type OpenCodeWriteAction = OpenCodeWriteInput & {
+  sessionID: string
+  callID: string
+  transcript_path: string
+}
+
 export type WriteAction =
   | ClaudeCodeWriteAction
   | CodexWriteAction
   | CopilotChatWriteAction
   | CopilotWriteAction
+  | OpenCodeWriteAction
 
 export type WriteActionOpts = {
   agent: Vendor
@@ -70,6 +78,8 @@ export function createWriteAction(opts: WriteActionOpts): WriteAction {
       return createCopilotChatWriteAction(opts)
     case 'github-copilot':
       return createCopilotWriteAction(opts)
+    case 'opencode':
+      return createOpenCodeWriteAction(opts)
   }
 }
 
@@ -147,5 +157,20 @@ function createCopilotWriteAction(opts: {
       path: opts.filePath,
       file_text: opts.content,
     }),
+  }
+}
+
+function createOpenCodeWriteAction(opts: {
+  cwd: string
+  filePath: string
+  content: string
+}): OpenCodeWriteAction {
+  return {
+    sessionID: STUB_SESSION_ID,
+    callID: STUB_TOOL_USE_ID,
+    transcript_path: STUB_TRANSCRIPT_PATH,
+    cwd: opts.cwd,
+    tool: 'Write',
+    args: { filePath: opts.filePath, content: opts.content },
   }
 }

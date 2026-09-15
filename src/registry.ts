@@ -15,6 +15,10 @@ import { readTranscript as readGithubCopilotTranscript } from './vendors/github-
 import * as githubCopilotChatAdapter from './vendors/github-copilot-chat/adapter.js'
 import { toCanonical as githubCopilotChatToCanonical } from './vendors/github-copilot-chat/event.js'
 import { readTranscript as readGithubCopilotChatTranscript } from './vendors/github-copilot-chat/transcript.js'
+import { opencode } from './vendors/opencode/agent.js'
+import * as opencodeAdapter from './vendors/opencode/adapter.js'
+import { toCanonical as opencodeToCanonical } from './vendors/opencode/event.js'
+import { readTranscript as readOpenCodeTranscript } from './vendors/opencode/transcript.js'
 
 /**
  * Each vendor entry bundles the vendor-specific pieces the engine
@@ -55,6 +59,12 @@ export const vendors = {
     agent: githubCopilot,
     readTranscript: readGithubCopilotChatTranscript,
     toCanonical: githubCopilotChatToCanonical,
+  },
+  opencode: {
+    adapter: opencodeAdapter,
+    agent: opencode,
+    readTranscript: readOpenCodeTranscript,
+    toCanonical: opencodeToCanonical,
   },
 } satisfies Record<string, VendorEntry>
 

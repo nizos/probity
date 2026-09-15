@@ -1,0 +1,11 @@
+{
+  "tool": "Edit",
+  "sessionID": "ses_test1",
+  "callID": "call_3",
+  "args": {
+    "filePath": "src/hello.ts",
+    "oldString": "return 'world'",
+    "newString": "return 'hello world'"
+  },
+  "cwd": "/workspaces/probity"
+}

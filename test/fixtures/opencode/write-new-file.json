@@ -1,0 +1,10 @@
+{
+  "tool": "Write",
+  "sessionID": "ses_test1",
+  "callID": "call_2",
+  "args": {
+    "filePath": "src/hello.ts",
+    "content": "export function hello() { return 'world' }\n"
+  },
+  "cwd": "/workspaces/probity"
+}

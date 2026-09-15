@@ -1,0 +1,2 @@
+{"info":{"role":"user","id":"msg_1"},"parts":[{"type":"text","text":"run the tests"}]}
+{"info":{"role":"assistant","id":"msg_2"},"parts":[{"type":"tool","tool":"Bash","callID":"call_1","state":{"status":"error","input":{"command":"npm test"},"error":"Process exited with code 1"}}]}
