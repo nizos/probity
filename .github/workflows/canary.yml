@@ -1,20 +1,61 @@
 name: Canary Release
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: [CI, Security]
+    types: [completed]
   workflow_dispatch:
 
 permissions: {}
 
 concurrency:
-  group: canary-release
+  group: canary-release-${{ github.event.workflow_run.head_sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
+  verify-checks:
+    name: Verify checks
+    if: >-
+      github.repository == 'nizos/probity' &&
+      (
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/main'
+        ) ||
+        (
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.conclusion == 'success'
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    permissions:
+      actions: read
+    steps:
+      - name: Verify CI and security workflows passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for workflow in CI Security; do
+            conclusion=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=push" \
+              --jq ".workflow_runs | map(select(.name == \"${workflow}\" and .head_branch == \"main\")) | sort_by(.run_number) | last | .conclusion")
+
+            if [[ "$conclusion" != "success" ]]; then
+              echo "${workflow} has not passed for ${HEAD_SHA} (conclusion: ${conclusion:-missing})"
+              exit 1
+            fi
+          done
+
   build:
     name: Build canary
-    if: github.repository == 'nizos/probity' && github.ref == 'refs/heads/main'
+    needs: verify-checks
+    if: needs.verify-checks.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -23,6 +64,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
 
       - name: Setup Node.js
@@ -88,7 +130,7 @@ jobs:
   publish:
     name: Publish canary
     needs: build
-    if: github.repository == 'nizos/probity' && github.ref == 'refs/heads/main'
+    if: needs.build.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: npm-canary

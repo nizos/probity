@@ -22,7 +22,7 @@ Implementation must be test driven. Run `npm run checks` (lint, format, typechec
 
 ### Canary Releases
 
-Successful builds from `main` are published to npm under the `canary` dist-tag. Install the latest unreleased build with:
+Main commits that pass both CI and security checks are published to npm under the `canary` dist-tag. Install the latest unreleased build with:
 
 ```bash
 npm install -D @nizos/probity@canary
