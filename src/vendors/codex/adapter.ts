@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import type { Action, Decision } from '../../types.js'
 import { fromSchema, passthroughFor } from '../adapter.js'
+import { splitPatchFiles } from '../apply-patch.js'
 import { posixAbsolute } from '../posix-absolute.js'
 
 /**
@@ -10,25 +11,6 @@ import { posixAbsolute } from '../posix-absolute.js'
  * so we declare it alongside the function that produces it.
  */
 export type ResponseShape = { decision: string; reason: string }
-
-const PATCH_FILE_HEADER = /^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm
-
-/**
- * Splits an apply_patch command into one section per file, keyed by the
- * `*** Add/Update/Delete File:` headers. Each section runs from its
- * header up to the next header (or the end of the patch), so a
- * multi-file patch yields one write per file instead of collapsing to
- * the first header — files 2..N would otherwise escape path-scoped
- * rules entirely.
- */
-function splitPatchFiles(command: string): { path: string; section: string }[] {
-  const headers = [...command.matchAll(PATCH_FILE_HEADER)]
-  return headers.map((header, i) => {
-    const start = header.index ?? 0
-    const next = headers[i + 1]?.index ?? command.length
-    return { path: header[1]!.trim(), section: command.slice(start, next) }
-  })
-}
 
 const bashSchema = z.object({
   tool_name: z.literal('Bash'),
