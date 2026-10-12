@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { constants } from 'node:fs'
-import { open, type FileHandle } from 'node:fs/promises'
+import { lstat, open, type FileHandle } from 'node:fs/promises'
 
 export const DEFAULT_MAX_BYTES = 100 * 1024 * 1024
 
@@ -55,6 +55,10 @@ async function readBoundedUtf8(
 
 async function openNoFollow(path: string): Promise<FileHandle> {
   try {
+    // O_NOFOLLOW is undefined on Windows; lstat is the portable check.
+    if ((await lstat(path)).isSymbolicLink()) {
+      throw new Error(`file at ${path} is a symbolic link (refusing)`)
+    }
     return await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
   } catch (err) {
     if (err instanceof Error && 'code' in err && err.code === 'ELOOP') {

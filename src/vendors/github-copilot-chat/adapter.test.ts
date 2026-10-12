@@ -31,7 +31,7 @@ const it = baseTest
   .extend('makeFile', ({ dir }) => async (content: string) => {
     const filePath = path.join(dir, 'foo.ts')
     await writeFile(filePath, content)
-    return filePath
+    return filePath.replace(/\\/g, '/')
   })
 
 describe('github-copilot-chat adapter', () => {

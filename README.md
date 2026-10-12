@@ -67,13 +67,13 @@ Then [wire it into your agent](docs/setup.md). One-time setup per agent.
 ## FAQ
 
 **Does it work with my agent?**
-Probity currently works with Claude Code, Codex, and GitHub Copilot CLI, with more coming.
+Probity works with Claude Code, Codex, GitHub Copilot CLI, and Devin CLI. Devin requires an explicit AI validator for AI-backed rules; deterministic rules work without one. See [Devin setup](docs/setup.md#devin-cli).
 
 **Does it work with my language?**
-Probity reads each agent's session transcript directly, so there are no per-framework reporters to install. It works with any language and test runner that your agent can work with.
+Probity reads agent session history (native transcripts, or a lifecycle event journal for Devin), so there are no per-framework reporters to install. It works with any language and test runner that your agent can work with.
 
 **Does Probity need its own API key or subscription?**
-No. AI-validated rules use each vendor's official SDK and reuse whatever authentication your agent already has, so Probity doesn't require its own access or billing.
+Claude Code, Codex, and Copilot AI validators use their official SDKs and existing authentication. Devin's adapter requires a configured `Config.ai` validator; it does not automatically reuse Devin authentication. Its access and billing depend on that validator.
 
 **Does this cost extra tokens?**
 AI-validated rules add a turn each time they check an action, so yes, some. Working in small TDD steps adds turns of its own, with or without Probity. Pattern-based rules add none.

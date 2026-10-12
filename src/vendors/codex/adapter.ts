@@ -35,6 +35,24 @@ const bashSchema = z.object({
   tool_input: z.object({ command: z.string() }),
 })
 
+/**
+ * Current Codex releases invoke shell commands as `exec`, which the
+ * Bash-only schema (and the documented matcher that mirrors it) never
+ * gated. The command text arrives under either `command` or `cmd`
+ * depending on the Codex release.
+ */
+const execSchema = z.object({
+  tool_name: z.literal('exec'),
+  tool_input: z
+    .object({
+      command: z.union([z.string(), z.array(z.string())]).optional(),
+      cmd: z.string().optional(),
+    })
+    .refine((input) => input.command !== undefined || input.cmd !== undefined, {
+      message: 'exec: expected command or cmd',
+    }),
+})
+
 const applyPatchSchema = z.object({
   tool_name: z.literal('apply_patch'),
   tool_input: z.object({ command: z.string() }),
@@ -54,6 +72,13 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
     kind: 'command',
     command: d.tool_input.command,
   })),
+  execSchema.transform((d): Action => {
+    const text = d.tool_input.command ?? d.tool_input.cmd!
+    return {
+      kind: 'command',
+      command: Array.isArray(text) ? text.join(' ') : text,
+    }
+  }),
   applyPatchSchema.transform((d, ctx): Action[] => {
     const files = splitPatchFiles(d.tool_input.command)
     if (files.length === 0) {
@@ -83,7 +108,11 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
  * Bash / apply_patch payload still surfaces as a parse error rather
  * than silently passing through.
  */
-const passthroughSchema = passthroughFor('tool_name', ['Bash', 'apply_patch'])
+const passthroughSchema = passthroughFor('tool_name', [
+  'Bash',
+  'exec',
+  'apply_patch',
+])
 
 export const parseAction = fromSchema(
   z.union([writeToolsSchema, passthroughSchema]),

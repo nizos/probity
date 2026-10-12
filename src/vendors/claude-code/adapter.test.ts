@@ -31,7 +31,7 @@ const it = baseTest
   .extend('makeFile', ({ dir }) => async (content: string, name = 'foo.ts') => {
     const filePath = path.join(dir, name)
     await writeFile(filePath, content)
-    return filePath
+    return filePath.replace(/\\/g, '/')
   })
 
 describe('claude-code adapter', () => {

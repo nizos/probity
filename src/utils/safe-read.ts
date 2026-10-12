@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { constants } from 'node:fs'
-import { open, type FileHandle } from 'node:fs/promises'
+import { lstat, open, type FileHandle } from 'node:fs/promises'
 
 import type { FileContent } from '../rules/contract.js'
 
@@ -19,6 +19,8 @@ export async function safeReadCapped(
   options: { maxBytes?: number } = {},
 ): Promise<FileContent> {
   try {
+    // O_NOFOLLOW is undefined on Windows; lstat is the portable check.
+    if ((await lstat(path)).isSymbolicLink()) return { kind: 'unknown' }
     const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
     try {
       return await readBounded(handle, options.maxBytes)

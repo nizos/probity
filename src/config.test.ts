@@ -39,7 +39,13 @@ describe('loadConfig', () => {
     const config = await loadConfig(fixture)
 
     expect(config.rules[0]).toMatchObject({
-      files: ['!' + path.posix.join(path.dirname(fixture), 'src/foo.ts')],
+      files: [
+        '!' +
+          path.posix.join(
+            path.dirname(fixture).replace(/\\/g, '/'),
+            'src/foo.ts',
+          ),
+      ],
     })
   })
 

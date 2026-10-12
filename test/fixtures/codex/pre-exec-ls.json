@@ -1,0 +1,14 @@
+{
+  "session_id": "01a128fb-d516-7413-97a5-7e169c6b5cb2",
+  "turn_id": "01a1290b-7187-70f0-b720-89b1a70483d8",
+  "transcript_path": "/tmp/codex-rollout.jsonl",
+  "cwd": "/workspaces/probity",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5.4",
+  "permission_mode": "default",
+  "tool_name": "exec",
+  "tool_input": {
+    "command": "ls -la"
+  },
+  "tool_use_id": "call_N4SX8jpZFuf7QJO"
+}
