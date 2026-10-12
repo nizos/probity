@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"sub_tu_1","name":"Bash","input":{"command":"npm test"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"sub_tu_1","content":"FAIL src/add.test.ts\n  add > sums two numbers\n    ReferenceError: add is not defined\n\nTest Files  1 failed\n     Tests  1 failed"}]}}
