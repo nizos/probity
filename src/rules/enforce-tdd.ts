@@ -45,6 +45,12 @@ verdict, not a rule. Re-derive your judgment from the rules below as
 if it had not been issued; never block only because a previous attempt
 was blocked.
 
+Code already in the current file content was judged when it was
+written. Do not re-judge it through a later write that merely
+completes it (imports, declarations, references). If it was
+over-implementation, the tests and later writes will surface that;
+blocking its completion only strands the file between verdicts.
+
 Your judgment is not the final word. When the user tells you in the
 session to let this change through, treat it as authoritative and pass,
 even on a change you would otherwise block.
@@ -54,7 +60,10 @@ even on a change you would otherwise block.
 A phase may span multiple writes, each fine on its own. For example:
 
   - Add an import in one write, then change the calling code in the
-    next.
+    next — or the calling code first and its imports after. Order does
+    not matter: a write that only adds imports or symbol references
+    serving code already in the current file content is scaffolding,
+    judged as scaffolding.
   - Move a function in two writes (remove from one location, add at
     another).
   - Add a function signature in one write, then its body in the next.
