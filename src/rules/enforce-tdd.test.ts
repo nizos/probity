@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import { describe, it, expect, onTestFinished } from 'vitest'
 
+import { attachEditDelta } from '../edit-delta.js'
 import type { Action, RawSessionEvent, Verdict } from '../types.js'
 import { safeReadCapped } from '../utils/safe-read.js'
 import type { FileContent, RuleContext } from './contract.js'
@@ -70,6 +71,108 @@ describe('enforce-tdd', () => {
 
     expect(s.capturedPrompt).toContain('src/calc.ts')
     expect(s.capturedPrompt).toContain('export const add')
+  })
+
+  it('sends an Edit as its exact delta without reading or prompting the unchanged file body', async () => {
+    const unchanged = 'UNCHANGED_SURROUNDING_CONTEXT\n'.repeat(40_000)
+    let readFileCalls = 0
+    const s = setup({
+      readFile: () => {
+        readFileCalls++
+        return Promise.resolve({
+          kind: 'present',
+          content: `${unchanged}oldName()${unchanged}`,
+        })
+      },
+    })
+    const action = attachEditDelta(
+      writeAction('src/large.ts', `${unchanged}newName()${unchanged}`),
+      {
+        oldString: 'oldName()',
+        newString: 'newName()',
+        replaceAll: false,
+        occurrences: 1,
+      },
+    )
+
+    await s.rule(action, s.ctx)
+
+    expect(readFileCalls).toBe(0)
+    expect(s.capturedPrompt).toContain('src/large.ts')
+    expect(s.capturedPrompt).toContain('oldName()')
+    expect(s.capturedPrompt).toContain('newName()')
+    expect(s.capturedPrompt).toContain('replace one occurrence')
+    expect(s.capturedPrompt).not.toContain('UNCHANGED_SURROUNDING_CONTEXT')
+    expect(s.capturedPrompt.length).toBeLessThan(10_000)
+  })
+
+  it('keeps full context for a small Edit when delta projection would not materially improve latency', async () => {
+    let readFileCalls = 0
+    const before =
+      'function calculateInvoice() {\n  // DOMAIN_CONTEXT\n  return oldTotal\n}\n'
+    const after = before.replace('oldTotal', 'newTotal')
+    const s = setup({
+      readFile: () => {
+        readFileCalls++
+        return Promise.resolve({ kind: 'present', content: before })
+      },
+    })
+    const action = attachEditDelta(writeAction('src/invoice.ts', after), {
+      oldString: 'oldTotal',
+      newString: 'newTotal',
+      replaceAll: false,
+      occurrences: 1,
+    })
+
+    await s.rule(action, s.ctx)
+
+    expect(readFileCalls).toBe(1)
+    expect(s.capturedPrompt).toContain('DOMAIN_CONTEXT')
+    expect(s.capturedPrompt).toContain(after)
+  })
+
+  it('keeps full context when a large Edit descriptor is not four times smaller than the post-image', async () => {
+    const oldString = 'OLD_REGION'.repeat(7_000)
+    const newString = 'NEW_REGION'.repeat(7_000)
+    const before = `CONTEXT_REQUIRED\n${oldString}`
+    const after = `CONTEXT_REQUIRED\n${newString}`
+    let readFileCalls = 0
+    const s = setup({
+      readFile: () => {
+        readFileCalls++
+        return Promise.resolve({ kind: 'present', content: before })
+      },
+    })
+    const action = attachEditDelta(writeAction('src/large-region.ts', after), {
+      oldString,
+      newString,
+      replaceAll: false,
+      occurrences: 1,
+    })
+
+    await s.rule(action, s.ctx)
+
+    expect(readFileCalls).toBe(1)
+    expect(s.capturedPrompt).toContain('CONTEXT_REQUIRED')
+  })
+
+  it('describes the exact count for a large replace-all Edit', async () => {
+    const unchanged = 'large surrounding content\n'.repeat(10_000)
+    const s = setup()
+    const action = attachEditDelta(
+      writeAction('src/rename.ts', `${unchanged}newName newName newName`),
+      {
+        oldString: 'oldName',
+        newString: 'newName',
+        replaceAll: true,
+        occurrences: 3,
+      },
+    )
+
+    await s.rule(action, s.ctx)
+
+    expect(s.capturedPrompt).toContain('replace all 3 occurrences')
+    expect(s.capturedPrompt).not.toContain('large surrounding content')
   })
 
   it('includes recent session history in the AI prompt', async () => {
@@ -330,6 +433,35 @@ describe('enforce-tdd', () => {
     expect(s.agentCalled).toBe(false)
   })
 
+  it('still reads the full before-image for the fast-path on a large Edit', async () => {
+    const filler = '// unchanged\n'.repeat(8_000)
+    const before = `${filler}// INSERT_TEST\n`
+    const after = `${filler}it('new behavior', () => {})\n`
+    let readFileCalls = 0
+    const s = setup({
+      fastPath: true,
+      readFile: () => {
+        readFileCalls++
+        return Promise.resolve({ kind: 'present', content: before })
+      },
+    })
+    const action = attachEditDelta(writeAction('src/large.test.ts', after), {
+      oldString: '// INSERT_TEST',
+      newString: "it('new behavior', () => {})",
+      replaceAll: false,
+      occurrences: 1,
+    })
+
+    const result = await s.rule(action, s.ctx)
+
+    expect(result).toEqual({
+      kind: 'pass',
+      notes: [{ kind: 'fast-path' }],
+    })
+    expect(readFileCalls).toBe(1)
+    expect(s.agentCalled).toBe(false)
+  })
+
   it('preserves the validator verdict reason on the pass result', async () => {
     const s = setup({
       verdict: { kind: 'pass', reason: 'looks like a refactor' },
@@ -457,7 +589,7 @@ function setup(
 function writeAction(
   path = 'src/calc.ts',
   content = 'export const add = (a, b) => a + b',
-): Action {
+): Extract<Action, { kind: 'write' }> {
   return { kind: 'write', path, content }
 }
 

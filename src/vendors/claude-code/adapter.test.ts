@@ -5,6 +5,7 @@ import path from 'node:path'
 import { describe, expect, test as baseTest } from 'vitest'
 
 import { makeSandboxDir } from '../../../test/helpers/sandbox.js'
+import { getEditDelta } from '../../edit-delta.js'
 import type { Action } from '../../types.js'
 import { parseAs } from '../../utils/parse-as.js'
 import type { ParseActionResult } from '../adapter.js'
@@ -115,6 +116,36 @@ describe('claude-code adapter', () => {
         },
       ],
     })
+  })
+
+  it('retains the exact Edit operation as non-serialized rule metadata', async ({
+    dir,
+    makeFile,
+  }) => {
+    const filePath = await makeFile('before\r\nMARKER\r\nafter\r\n')
+
+    const result = await parseAction({
+      cwd: dir,
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: filePath,
+        old_string: 'before\r\nMARKER\r\nafter',
+        new_string: 'before\r\nREPLACED\r\nafter',
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const action = result.actions[0]
+    expect(action).toBeDefined()
+    if (!action) return
+    expect(getEditDelta(action)).toEqual({
+      oldString: 'before\nMARKER\nafter',
+      newString: 'before\nREPLACED\nafter',
+      replaceAll: false,
+      occurrences: 1,
+    })
+    expect(JSON.stringify(action)).not.toContain('oldString')
   })
 
   it('Edit succeeds when the on-disk file is CRLF and the agent sent old_string as LF (Windows-typical)', async ({
