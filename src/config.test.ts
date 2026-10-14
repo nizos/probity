@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -84,6 +91,36 @@ export default defineConfig({
     const block = config.rules[0] as { files: readonly string[] }
 
     expect(block.files[0]).not.toContain('\\')
+  })
+
+  it('anchors files globs at the canonical config directory, even when --config reaches it through a symlink', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'probity-config-symlink-'))
+    onTestFinished(async () => {
+      await rm(dir, { recursive: true, force: true })
+    })
+    const real = path.join(dir, 'real')
+    await mkdir(real, { recursive: true })
+    await writeFile(
+      path.join(real, 'probity.config.ts'),
+      `import { defineConfig, forbidContentPattern } from '@nizos/probity'
+export default defineConfig({
+  rules: [
+    {
+      files: ['src/**'],
+      rules: [forbidContentPattern({ match: /./, reason: 'x' })],
+    },
+  ],
+})
+`,
+    )
+    const alias = path.join(dir, 'alias')
+    await symlink(real, alias)
+    const expectedRoot = await realpath(real)
+
+    const config = await loadConfig(path.join(alias, 'probity.config.ts'))
+    const block = config.rules[0] as { files: readonly string[] }
+
+    expect(block.files[0]).toBe(path.posix.join(expectedRoot, 'src/**'))
   })
 
   it('resolves `@nizos/probity` from a config file that lives outside the package tree', async () => {
