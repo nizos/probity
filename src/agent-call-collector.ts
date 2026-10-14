@@ -2,9 +2,9 @@ import type { Agent, AgentCall, TraceEntry } from './types.js'
 import type { EvaluateHooks } from './engine.js'
 
 /**
- * Captures AI validator calls for the operator trace. Rules stay clean:
- * they call `ctx.agent.reason(prompt)`; attribution flows through this
- * collector without rule cooperation. Calls made outside any rule's
+ * Captures AI validator calls for the operator trace. Attribution flows
+ * through this collector without rule cooperation, including calls that use
+ * the optional system-prompt capability. Calls made outside any rule's
  * lifecycle are silently dropped.
  */
 export type AgentCallCollector = {
@@ -30,13 +30,18 @@ function withCallTiming(
   inner: Agent,
   onCall: (call: AgentCall) => void,
 ): Agent {
+  const timed = async (run: () => ReturnType<Agent['reason']>) => {
+    const start = performance.now()
+    const verdict = await run()
+    onCall({ durationMs: performance.now() - start, verdict })
+    return verdict
+  }
+  const reasonWithSystem = inner.reasonWithSystem?.bind(inner)
   return {
-    reason: async (prompt) => {
-      const start = performance.now()
-      const verdict = await inner.reason(prompt)
-      onCall({ durationMs: performance.now() - start, verdict })
-      return verdict
-    },
+    reason: (prompt) => timed(() => inner.reason(prompt)),
+    ...(reasonWithSystem && {
+      reasonWithSystem: (input) => timed(() => reasonWithSystem(input)),
+    }),
   }
 }
 

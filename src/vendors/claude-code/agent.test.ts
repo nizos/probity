@@ -89,6 +89,31 @@ describe('claudeCode', () => {
     expect(capture.last?.options?.persistSession).toBe(false)
   })
 
+  it('passes stable instructions through the cacheable system prompt boundary', async () => {
+    const capture = captureQuery()
+    const client = claudeCode({ queryFn: capture.fn })
+
+    await client.reasonWithSystem?.({
+      system: 'STABLE_TDD_INSTRUCTIONS',
+      prompt: 'DYNAMIC_WRITE_EVIDENCE',
+    })
+
+    expect(capture.last?.prompt).toBe('DYNAMIC_WRITE_EVIDENCE')
+    expect(capture.last?.options?.systemPrompt).toEqual([
+      'STABLE_TDD_INSTRUCTIONS',
+      '__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__',
+    ])
+  })
+
+  it('leaves the system prompt unset for existing direct reason calls', async () => {
+    const capture = captureQuery()
+    const client = claudeCode({ queryFn: capture.fn })
+
+    await client.reason('combined prompt')
+
+    expect(capture.last?.options?.systemPrompt).toBeUndefined()
+  })
+
   it('parses a verdict from a fenced code block', async () => {
     const client = claudeCode({
       queryFn: fakeQuery({

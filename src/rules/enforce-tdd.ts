@@ -179,15 +179,18 @@ function buildPrompt(
   historyBlock: string,
   before: FileContent,
   action: { path: string; content: string },
-): string {
-  const sections = [PROCESS_INSTRUCTIONS, rules]
+): { system: string; prompt: string } {
+  const sections = []
   if (historyBlock) sections.push(`## Recent session\n\n${historyBlock}`)
   sections.push(`## Current file content\n\n${formatBefore(before)}`)
   sections.push(
     `## Pending action\n\nFile: ${action.path}\n\n${action.content}`,
   )
   sections.push(RESPONSE_SPEC)
-  return sections.join('\n\n')
+  return {
+    system: [PROCESS_INSTRUCTIONS, rules].join('\n\n'),
+    prompt: sections.join('\n\n'),
+  }
 }
 
 function formatBefore(before: FileContent): string {
@@ -205,8 +208,7 @@ function formatBefore(before: FileContent): string {
  * Blocks a write unless the session's recent history shows a failing
  * test that the pending implementation would address, and the write
  * is the minimum implementation needed to make that test pass. Uses
- * an AI validator (via `ctx.agent.reason`) to judge the pending action
- * against the transcript.
+ * an AI validator to judge the pending action against the transcript.
  *
  * Applies to: write actions.
  * Supported agents: Claude Code, Codex, GitHub Copilot.
@@ -314,7 +316,9 @@ async function validateWithAi(
   const windowed = trimHistory(events, window)
   const historyBlock = windowed.map(formatEvent).join('\n')
   const prompt = buildPrompt(rules, historyBlock, before, action)
-  const verdict = await ctx.agent.reason(prompt)
+  const verdict = ctx.agent.reasonWithSystem
+    ? await ctx.agent.reasonWithSystem(prompt)
+    : await ctx.agent.reason(`${prompt.system}\n\n${prompt.prompt}`)
   if (verdict.kind === 'violation') {
     return { kind: 'violation', reason: verdict.reason }
   }
