@@ -1,0 +1,20 @@
+version = 1
+name = "Probity"
+
+[setup]
+script = "npm ci && npm run build"
+
+[[actions]]
+name = "Checks"
+icon = "test"
+command = "npm run checks"
+
+[[actions]]
+name = "Test"
+icon = "test"
+command = "npm test"
+
+[[actions]]
+name = "Build"
+icon = "tool"
+command = "npm run build"
