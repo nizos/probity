@@ -1,0 +1,5 @@
+{"type":"user","message":{"content":[{"type":"text","text":"add an `add` function that sums two numbers"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_1","name":"Write","input":{"file_path":"src/add.test.ts","content":"import { describe, it, expect } from 'vitest'\nimport { add } from './add'\n\ndescribe('add', () => {\n  it('sums two numbers', () => {\n    expect(add(2, 3)).toBe(5)\n  })\n})\n"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_1","content":"File written"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_2","name":"Task","input":{"description":"run the suite and report back"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_2","content":"Done."}]}}
