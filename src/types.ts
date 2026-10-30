@@ -114,13 +114,22 @@ export type Verdict = {
 }
 
 /**
- * The minimal AI-validator contract. Rules that need LLM judgment reach
- * for `ctx.agent.reason(prompt)`; agents implement this one method and
- * are swappable without touching rule code.
+ * The minimal AI-validator contract. Implementing `reason` is sufficient;
+ * providers can additionally expose a distinct system-prompt channel.
  */
 export type Agent = {
   reason: (prompt: string) => Promise<Verdict>
+  /**
+   * Sends stable instructions separately when the provider exposes a system
+   * prompt. Callers fall back to `reason` when this capability is absent.
+   */
+  reasonWithSystem?: (input: SystemPromptInput) => Promise<Verdict>
 }
+
+export type SystemPromptInput = Readonly<{
+  system: string
+  prompt: string
+}>
 
 /**
  * A vendor-shaped event from the agent's recent session — what the
