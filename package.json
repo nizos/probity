@@ -1,7 +1,7 @@
 {
   "name": "@nizos/probity",
   "version": "1.10.1",
-  "description": "TDD enforcement and guardrails for Claude Code, Codex, and GitHub Copilot CLI.",
+  "description": "TDD enforcement and guardrails for Claude Code, Codex, GitHub Copilot CLI, and Devin CLI.",
   "license": "MIT",
   "author": "Nizar Selander",
   "repository": {
@@ -13,6 +13,7 @@
   "keywords": [
     "claude-code",
     "codex",
+    "devin",
     "github-copilot",
     "coding-agent",
     "hooks",

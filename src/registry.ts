@@ -15,6 +15,13 @@ import { readTranscript as readGithubCopilotTranscript } from './vendors/github-
 import * as githubCopilotChatAdapter from './vendors/github-copilot-chat/adapter.js'
 import { toCanonical as githubCopilotChatToCanonical } from './vendors/github-copilot-chat/event.js'
 import { readTranscript as readGithubCopilotChatTranscript } from './vendors/github-copilot-chat/transcript.js'
+import { devin } from './vendors/devin/agent.js'
+import * as devinAdapter from './vendors/devin/adapter.js'
+import { toCanonical as devinToCanonical } from './vendors/devin/event.js'
+import {
+  preparePayload as prepareDevinPayload,
+  readTranscript as readDevinTranscript,
+} from './vendors/devin/history.js'
 
 /**
  * Each vendor entry bundles the vendor-specific pieces the engine
@@ -29,9 +36,17 @@ export type VendorEntry = {
   agent: () => Agent
   readTranscript: (path: string) => Promise<RawSessionEvent[]>
   toCanonical?: (event: RawSessionEvent) => SessionEvent
+  preparePayload?: (payload: unknown) => Promise<unknown>
 }
 
 export const vendors = {
+  devin: {
+    adapter: devinAdapter,
+    agent: devin,
+    readTranscript: readDevinTranscript,
+    toCanonical: devinToCanonical,
+    preparePayload: prepareDevinPayload,
+  },
   'claude-code': {
     adapter: claudeCodeAdapter,
     agent: claudeCode,

@@ -100,7 +100,9 @@ export function sessionPath(payload: unknown): string | undefined {
   const parsed = ContextPayloadSchema.safeParse(payload)
   if (!parsed.success) return undefined
   const home = process.env.COPILOT_HOME ?? path.join(homedir(), '.copilot')
-  return path.join(home, 'session-state', parsed.data.sessionId, 'events.jsonl')
+  return path
+    .join(home, 'session-state', parsed.data.sessionId, 'events.jsonl')
+    .replace(/\\/g, '/')
 }
 
 export function toResponse(decision: Decision): string {

@@ -141,6 +141,8 @@ async function parsePayload(
 ): Promise<ParseResult> {
   const parsed = tryParseJson(rawPayload)
   if (parsed.kind === 'fail') return invalid(parsed.reason)
+  if (entry.preparePayload)
+    parsed.value = await entry.preparePayload(parsed.value)
 
   const parsedAction = await entry.adapter.parseAction(parsed.value)
   if (!parsedAction.ok) return invalid(parsedAction.reason)
