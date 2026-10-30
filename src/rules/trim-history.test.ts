@@ -27,6 +27,28 @@ describe('trimHistory', () => {
     )
   })
 
+  it('truncates a large structured action.input after JSON formatting', () => {
+    const events: RawSessionEvent[] = [
+      {
+        kind: 'action',
+        tool: 'Edit',
+        input: { file_path: 'src/large.ts', content: 'I'.repeat(1500) },
+        output: 'ok',
+        toolUseId: 'tu_1',
+      },
+    ]
+
+    const [windowed] = trimHistory(events, {
+      maxEvents: 10,
+      maxContentChars: 1000,
+    })
+
+    if (windowed?.kind !== 'action') throw new Error('expected action')
+    expect(typeof windowed.input).toBe('string')
+    expect(windowed.input).toMatch(/more characters truncated/)
+    expect(String(windowed.input).length).toBeLessThan(1100)
+  })
+
   it('truncates long prompt.text the same way', () => {
     const longText = 'B'.repeat(1500)
     const events: RawSessionEvent[] = [{ kind: 'prompt', text: longText }]
