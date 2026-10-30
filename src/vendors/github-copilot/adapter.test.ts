@@ -48,6 +48,76 @@ describe('github-copilot adapter', () => {
     })
   })
 
+  it('treats an apply_patch payload (Codex-in-Copilot) as a write action', async () => {
+    // Codex models inside Copilot CLI emit edits as apply_patch with the
+    // raw patch text as toolArgs; without this the write skips enforcement.
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      toolName: 'apply_patch',
+      toolArgs:
+        '*** Begin Patch\n*** Add File: src/UpperCase.ts\n+x\n*** End Patch\n',
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      actions: [
+        {
+          kind: 'write',
+          path: '/workspaces/probity/src/UpperCase.ts',
+          content: '*** Add File: src/UpperCase.ts\n+x\n*** End Patch\n',
+        },
+      ],
+    })
+  })
+
+  it('splits a multi-file apply_patch into one write per file', async () => {
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      toolName: 'apply_patch',
+      toolArgs:
+        '*** Begin Patch\n' +
+        '*** Update File: src/a.ts\n+a\n' +
+        '*** Update File: src/b.ts\n+b\n' +
+        '*** End Patch\n',
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      actions: [
+        { kind: 'write', path: '/workspaces/probity/src/a.ts' },
+        { kind: 'write', path: '/workspaces/probity/src/b.ts' },
+      ],
+    })
+  })
+
+  it('accepts apply_patch args wrapped as an { input } object', async () => {
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      toolName: 'apply_patch',
+      toolArgs: {
+        input:
+          '*** Begin Patch\n*** Add File: src/UpperCase.ts\n+x\n*** End Patch\n',
+      },
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      actions: [
+        { kind: 'write', path: '/workspaces/probity/src/UpperCase.ts' },
+      ],
+    })
+  })
+
+  it('reports a parse error for an apply_patch without a file header', async () => {
+    const result = await parseAction({
+      cwd: '/workspaces/probity',
+      toolName: 'apply_patch',
+      toolArgs: '*** Begin Patch\n*** End Patch\n',
+    })
+
+    expect(result.ok).toBe(false)
+  })
+
   it('tags the action type as command for a bash payload', async () => {
     const { action } = await setup('pre-bash-npm-test.json')
 

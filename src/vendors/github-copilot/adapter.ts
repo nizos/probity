@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { Action, Decision } from '../../types.js'
 import { fromSchema, passthroughFor } from '../adapter.js'
 import { applyEdit } from '../apply-edit.js'
+import { splitPatchFiles } from '../apply-patch.js'
 import { objectOrJsonString } from '../object-or-json-string.js'
 import { posixAbsolute } from '../posix-absolute.js'
 
@@ -44,6 +45,26 @@ const editSchema = z.object({
 })
 
 /**
+ * Codex models running inside Copilot CLI send edits as `apply_patch`
+ * rather than `create`/`edit`. The raw patch text arrives directly as
+ * `toolArgs` (as captured from the Copilot hook); newer builds may wrap
+ * tool arguments in an object like the other tools, so an `{ input }`
+ * object (or its JSON-string form) is accepted too, mirroring the
+ * string→object move `objectOrJsonString` already covers. Either way the
+ * patch text is extracted for splitting.
+ */
+const applyPatchSchema = z.object({
+  toolName: z.literal('apply_patch'),
+  toolArgs: z.union([
+    z.string(),
+    objectOrJsonString(z.object({ input: z.string() })).transform(
+      (a) => a.input,
+    ),
+  ]),
+  cwd: z.string().min(1),
+})
+
+/**
  * The validated payload shape for a `create` tool call. Intersect with
  * the ceremony fields Copilot sends (sessionId, timestamp) when
  * stamping out test payloads so the validated portion tracks the
@@ -75,6 +96,25 @@ const writeToolsSchema = z.discriminatedUnion('toolName', [
     }
     return { kind: 'write', path: filePath, content: result.content }
   }),
+  applyPatchSchema.transform((d, ctx): Action[] => {
+    const files = splitPatchFiles(d.toolArgs)
+    if (files.length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'apply_patch: no Add/Update/Delete File header',
+      })
+      return z.NEVER
+    }
+    // One Action per file so files 2..N are not skipped by path-scoped
+    // rules or per-file enforce-tdd. Each carries its own patch section
+    // as content (rather than the whole patch) so content rules see only
+    // that file's changes.
+    return files.map((file) => ({
+      kind: 'write',
+      path: posixAbsolute(d.cwd, file.path),
+      content: file.section,
+    }))
+  }),
 ])
 
 /**
@@ -84,7 +124,12 @@ const writeToolsSchema = z.discriminatedUnion('toolName', [
  * `bash` / `create` / `edit` payload still surfaces as a parse error
  * rather than silently passing through.
  */
-const passthroughSchema = passthroughFor('toolName', ['bash', 'create', 'edit'])
+const passthroughSchema = passthroughFor('toolName', [
+  'bash',
+  'create',
+  'edit',
+  'apply_patch',
+])
 
 export const parseAction = fromSchema(
   z.union([writeToolsSchema, passthroughSchema]),
