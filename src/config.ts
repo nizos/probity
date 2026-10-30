@@ -6,6 +6,7 @@ import { createJiti } from 'jiti'
 
 import type { Agent } from './types.js'
 import type { Rule } from './rules/contract.js'
+import { canonicalizePath } from './utils/canonicalize-path.js'
 
 /**
  * A scoped rule block. Groups rules under a shared `files` filter so
@@ -81,7 +82,7 @@ export async function loadConfig(filepath: string): Promise<Config> {
     },
   })
   const module = await jiti.import<{ default: Config }>(filepath)
-  const root = path.dirname(filepath).replace(/\\/g, '/')
+  const root = canonicalizePath(path.dirname(filepath))
   return {
     ...module.default,
     rules: module.default.rules.map((entry) => {

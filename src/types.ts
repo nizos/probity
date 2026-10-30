@@ -19,10 +19,10 @@ export type RuleResult =
  * Adapters translate vendor-specific hook payloads into this shape.
  *
  * - `write` — a file write or edit. `path` is absolute POSIX
- *   (adapters resolve it against the payload `cwd`). The engine
- *   relativizes against the config root at match time, so rule globs
- *   can be authored as `'src/**'` against the project root. Rules that
- *   read the file from disk can pass `path` straight to `fs.open`.
+ *   (adapters resolve it against the payload `cwd`). Block-level `files`
+ *   globs are anchored at the config root, not `path`, so they can be
+ *   authored as `'src/**'` against the project root. Rules that read
+ *   the file from disk can pass `path` straight to `fs.open`.
  * - `command` — a shell command invocation; carries the command text.
  */
 export type Action =

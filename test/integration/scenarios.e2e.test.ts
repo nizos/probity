@@ -1,5 +1,7 @@
+import { rm, symlink } from 'node:fs/promises'
+
 import type { FileTree } from 'fs-fixture'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, onTestFinished } from 'vitest'
 
 import type { Vendor } from '../../src/cli.js'
 import {
@@ -171,6 +173,29 @@ describe.each([
         expect(result.reason).toContain(CONSOLE_RULE_REASON)
       },
     )
+
+    // Project reached through a symlink (e.g. a firmlink like macOS's
+    // /Users/x/Work -> /Volumes/dev): the config-anchored glob resolves
+    // symlinks, the agent's reported cwd doesn't, so the two must be
+    // compared symlink-aware or the rule silently never matches.
+    it('blocks a forbidden write when the project root is reached through a symlink', async () => {
+      const sandbox = await createSandbox({
+        'probity.config.ts': createProbityConfig(),
+        ...fixtureFiles,
+      })
+      const alias = `${sandbox.path}-alias`
+      await symlink(sandbox.path, alias)
+      onTestFinished(() => rm(alias, { force: true }))
+
+      const result = await runWriteAction({
+        agent,
+        cwd: alias,
+        filePath: 'src/foo.ts',
+      })
+
+      expect(result.decision).toBe('deny')
+      expect(result.reason).toContain(CONSOLE_RULE_REASON)
+    })
   })
 })
 
