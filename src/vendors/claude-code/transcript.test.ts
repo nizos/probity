@@ -76,4 +76,30 @@ describe('claude-code transcript', () => {
       'prompt',
     ])
   })
+
+  it('merges tool calls from a sibling subagents/ directory into the returned history', async () => {
+    const events = await readTranscript(
+      'test/fixtures/transcripts/with-subagent/main.jsonl',
+    )
+
+    expect(events).toContainEqual({
+      kind: 'action',
+      tool: 'Bash',
+      input: { command: 'npm test' },
+      output: 'FAIL src/foo.test.ts\n1 failed',
+      toolUseId: 'sub_tu_1',
+    })
+  })
+
+  it('orders events from multiple subagents by real timestamp, not by subagent filename', async () => {
+    const events = await readTranscript(
+      'test/fixtures/transcripts/with-multiple-subagents/main.jsonl',
+    )
+
+    expect(events.map((e) => (e as { toolUseId?: string }).toolUseId)).toEqual([
+      'tu_old',
+      undefined,
+      'tu_new',
+    ])
+  })
 })
