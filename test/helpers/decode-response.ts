@@ -20,6 +20,7 @@ const decoders: Record<Vendor, (stdout: string) => DecodedResponse> = {
   'claude-code': decodeClaudeShape,
   'github-copilot-chat': decodeClaudeShape,
   codex: decodeCodexShape,
+  devin: decodeCodexShape,
   'github-copilot': decodeCopilotShape,
 }
 

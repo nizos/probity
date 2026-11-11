@@ -54,6 +54,46 @@ describe('codex adapter', () => {
     expect(action).toMatchObject({ command: payload.tool_input.command })
   })
 
+  it('extracts the command text from an exec payload', async () => {
+    const { action, payload } = await setup('pre-exec-ls.json')
+
+    expect(action).toMatchObject({ command: payload.tool_input.command })
+  })
+
+  it('accepts an exec payload carrying cmd instead of command', async () => {
+    const action = ok(
+      await parseAction({
+        tool_name: 'exec',
+        tool_input: { cmd: 'whoami' },
+      }),
+    )
+
+    expect(action).toEqual({ kind: 'command', command: 'whoami' })
+  })
+
+  it('fails closed when an exec payload carries no command text', async () => {
+    const result = await parseAction({
+      tool_name: 'exec',
+      tool_input: { tty: true },
+    })
+
+    expect(result.ok).toBe(false)
+  })
+
+  it('joins an exec command given as an argv array', async () => {
+    const action = ok(
+      await parseAction({
+        tool_name: 'exec',
+        tool_input: { command: ['git', 'status', '--short'] },
+      }),
+    )
+
+    expect(action).toEqual({
+      kind: 'command',
+      command: 'git status --short',
+    })
+  })
+
   it('builds a block response as {"decision":"block","reason":...}', () => {
     const response = parseAs<ResponseShape>(
       toResponse({ kind: 'block', reason: 'no failing test' }),

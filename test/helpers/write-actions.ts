@@ -47,6 +47,15 @@ export type WriteAction =
   | CodexWriteAction
   | CopilotChatWriteAction
   | CopilotWriteAction
+  | DevinWriteAction
+
+type DevinWriteAction = {
+  hook_event_name: 'PreToolUse'
+  session_id: string
+  cwd: string
+  tool_name: 'write'
+  tool_input: { file_path: string; content: string }
+}
 
 export type WriteActionOpts = {
   agent: Vendor
@@ -62,6 +71,14 @@ export type WriteActionOpts = {
  */
 export function createWriteAction(opts: WriteActionOpts): WriteAction {
   switch (opts.agent) {
+    case 'devin':
+      return {
+        hook_event_name: 'PreToolUse',
+        session_id: STUB_SESSION_ID,
+        cwd: opts.cwd,
+        tool_name: 'write',
+        tool_input: { file_path: opts.filePath, content: opts.content },
+      }
     case 'claude-code':
       return createClaudeCodeWriteAction(opts)
     case 'codex':
