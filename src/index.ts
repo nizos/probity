@@ -9,6 +9,7 @@ export type {
   Agent,
   Decision,
   RawSessionEvent,
+  SystemPromptInput,
   Verdict,
 } from './types.js'
 export * from './rules/index.js'

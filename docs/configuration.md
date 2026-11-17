@@ -29,7 +29,7 @@ See [Rules](rules.md) for the built-in catalog.
 
 ## The `ai` override
 
-Probity's default AI validator pairs with the agent selected by `--agent` (e.g. the Claude Agent SDK for `claude-code`) and piggybacks on the user's logged-in session. To use a different model or provider, set `ai` on the config; the value must implement `{ reason: (prompt: string) => Promise<Verdict> }`.
+Probity's default AI validator pairs with the agent selected by `--agent` (e.g. the Claude Agent SDK for `claude-code`) and piggybacks on the user's logged-in session. To use a different model or provider, set `ai` on the config; the value must implement `{ reason: (prompt: string) => Promise<Verdict> }`. Providers that support a distinct system prompt may also implement `reasonWithSystem({ system, prompt })`; Probity falls back to `reason` when it is absent.
 
 The host coding agent itself is selected by the `--agent` CLI flag, not by the config — that keeps the same config portable across vendors.
 

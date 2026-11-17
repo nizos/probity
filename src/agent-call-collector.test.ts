@@ -54,6 +54,57 @@ describe('createAgentCallCollector', () => {
 
     expect(collector.enrichTrace(trace)).toEqual(trace)
   })
+
+  it('preserves and records the optional system-aware agent capability', async () => {
+    const verdict: Verdict = { kind: 'pass', reason: 'system-aware' }
+    const received: { system: string; prompt: string }[] = []
+    const collector = createAgentCallCollector({
+      reason: () => Promise.resolve(verdict),
+      reasonWithSystem: (input) => {
+        received.push(input)
+        return Promise.resolve(verdict)
+      },
+    })
+
+    collector.hooks.onRuleStart?.('enforceTdd')
+    const returned = await collector.agent.reasonWithSystem?.({
+      system: 'stable',
+      prompt: 'dynamic',
+    })
+    collector.hooks.onRuleEnd?.('enforceTdd')
+
+    expect(received).toEqual([{ system: 'stable', prompt: 'dynamic' }])
+    expect(returned).toEqual(verdict)
+    const [entry] = collector.enrichTrace([ruleEvaluated('enforceTdd')])
+    expect(entry?.kind === 'rule-evaluated' && entry.agentCalls).toHaveLength(1)
+  })
+
+  it('does not invent a system-aware capability for a reason-only agent', () => {
+    const { collector } = setup()
+
+    expect(collector.agent.reasonWithSystem).toBeUndefined()
+  })
+
+  it('preserves the receiver for system-aware agent methods', async () => {
+    const inner = {
+      prefix: 'bound',
+      reason: () => Promise.resolve({ kind: 'pass' as const, reason: '' }),
+      reasonWithSystem() {
+        return Promise.resolve({
+          kind: 'pass' as const,
+          reason: this.prefix,
+        })
+      },
+    }
+    const collector = createAgentCallCollector(inner)
+
+    const verdict = await collector.agent.reasonWithSystem?.({
+      system: 'stable',
+      prompt: 'dynamic',
+    })
+
+    expect(verdict?.reason).toBe('bound')
+  })
 })
 
 function setup(options: { verdict?: Verdict } = {}) {

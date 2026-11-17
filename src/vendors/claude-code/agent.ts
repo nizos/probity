@@ -5,18 +5,29 @@ import { toVerdict } from '../to-verdict.js'
 
 type ClaudeMessage = { type: string; [k: string]: unknown }
 
+// Keep the SDK runtime lazy-loaded. This mirrors its public marker value
+// without adding an eager import to every hook invocation.
+const SYSTEM_PROMPT_DYNAMIC_BOUNDARY: typeof import('@anthropic-ai/claude-agent-sdk').SYSTEM_PROMPT_DYNAMIC_BOUNDARY =
+  '__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__'
+
 export type QueryFn = (args: {
   prompt: string
   options?: ClaudeQueryOptions
 }) => AsyncIterable<ClaudeMessage>
 
 export function claudeCode(deps: { queryFn?: QueryFn } = {}): Agent {
+  const reason = (
+    prompt: string,
+    systemPrompt?: ClaudeQueryOptions['systemPrompt'],
+  ) =>
+    toVerdict(async () => {
+      const queryFn = deps.queryFn ?? (await loadDefaultQueryFn())
+      return getResult(queryFn, prompt, systemPrompt)
+    })
   return {
-    reason: (prompt) =>
-      toVerdict(async () => {
-        const queryFn = deps.queryFn ?? (await loadDefaultQueryFn())
-        return getResult(queryFn, prompt)
-      }),
+    reason,
+    reasonWithSystem: ({ system, prompt }) =>
+      reason(prompt, [system, SYSTEM_PROMPT_DYNAMIC_BOUNDARY]),
   }
 }
 
@@ -28,6 +39,7 @@ async function loadDefaultQueryFn(): Promise<QueryFn> {
 async function getResult(
   queryFn: QueryFn,
   prompt: string,
+  systemPrompt?: ClaudeQueryOptions['systemPrompt'],
 ): Promise<{ text: string; meta?: ClaudeCodeMeta }> {
   for await (const message of queryFn({
     prompt,
@@ -39,6 +51,7 @@ async function getResult(
       settings: { autoMemoryEnabled: false },
       settingSources: [],
       persistSession: false,
+      ...(systemPrompt && { systemPrompt }),
     },
   })) {
     if (message.type === 'result' && message.subtype === 'success') {

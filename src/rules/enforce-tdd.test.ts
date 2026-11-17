@@ -158,6 +158,77 @@ describe('enforce-tdd', () => {
     expect(s.capturedPrompt).toMatch(/three inputs|chronological/i)
   })
 
+  it('sends stable instructions separately from per-write evidence when the agent supports it', async () => {
+    const calls: { system: string; prompt: string }[] = []
+    const rule = enforceTdd({ instructions: 'CUSTOM_STABLE_TDD_RULE' })
+    const ctx: RuleContext = {
+      agent: {
+        reason: () => {
+          throw new Error('combined fallback should not be called')
+        },
+        reasonWithSystem: (input) => {
+          calls.push(input)
+          return Promise.resolve({ kind: 'pass', reason: '' })
+        },
+      },
+      rawHistory: () =>
+        Promise.resolve([{ kind: 'prompt', text: 'DYNAMIC_USER_EVIDENCE' }]),
+      readFile: () =>
+        Promise.resolve({ kind: 'present', content: 'DYNAMIC_BEFORE' }),
+    }
+
+    await rule(writeAction('src/first.ts', 'DYNAMIC_FIRST_WRITE'), ctx)
+    await rule(writeAction('src/second.ts', 'DYNAMIC_SECOND_WRITE'), ctx)
+
+    expect(calls).toHaveLength(2)
+    expect(calls[0]?.system).toBe(calls[1]?.system)
+    expect(calls[0]?.system).toContain('CUSTOM_STABLE_TDD_RULE')
+    expect(calls[0]?.system).toMatch(/TDD validator/i)
+    expect(calls[0]?.system).not.toContain('DYNAMIC_USER_EVIDENCE')
+    expect(calls[0]?.prompt).toContain('DYNAMIC_USER_EVIDENCE')
+    expect(calls[0]?.prompt).toContain('DYNAMIC_BEFORE')
+    expect(calls[0]?.prompt).toContain('DYNAMIC_FIRST_WRITE')
+    expect(calls[0]?.prompt).toMatch(/Response format/i)
+    expect(calls[1]?.prompt).toContain('DYNAMIC_SECOND_WRITE')
+  })
+
+  it('keeps the legacy combined prompt for reason-only agents', async () => {
+    let combined = ''
+    let separated: { system: string; prompt: string } | undefined
+    const sharedContext = {
+      rawHistory: () =>
+        Promise.resolve([{ kind: 'prompt' as const, text: 'USER_EVIDENCE' }]),
+      readFile: () =>
+        Promise.resolve({ kind: 'present' as const, content: 'BEFORE' }),
+    }
+    const action = writeAction('src/example.ts', 'AFTER')
+    const rule = enforceTdd({ instructions: 'CUSTOM_TDD_RULE' })
+
+    await rule(action, {
+      ...sharedContext,
+      agent: {
+        reason: (prompt) => {
+          combined = prompt
+          return Promise.resolve({ kind: 'pass', reason: '' })
+        },
+      },
+    })
+    await rule(action, {
+      ...sharedContext,
+      agent: {
+        reason: () => {
+          throw new Error('combined fallback should not be called')
+        },
+        reasonWithSystem: (input) => {
+          separated = input
+          return Promise.resolve({ kind: 'pass', reason: '' })
+        },
+      },
+    })
+
+    expect(combined).toBe(`${separated?.system}\n\n${separated?.prompt}`)
+  })
+
   it('uses ctx.readFile to source the current file content for the prompt', async () => {
     const s = setup({
       readFile: () =>
