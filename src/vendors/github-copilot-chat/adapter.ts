@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { attachEditDelta } from '../../edit-delta.js'
 import type { Action, Decision } from '../../types.js'
 import { fromSchema, passthroughFor } from '../adapter.js'
 import { applyEdit } from '../apply-edit.js'
@@ -68,7 +69,10 @@ const writeToolsSchema = z.discriminatedUnion('tool_name', [
       ctx.addIssue({ code: 'custom', message: result.reason })
       return z.NEVER
     }
-    return { kind: 'write', path: filePath, content: result.content }
+    return attachEditDelta(
+      { kind: 'write', path: filePath, content: result.content },
+      result.delta,
+    )
   }),
 ])
 

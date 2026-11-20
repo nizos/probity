@@ -1,3 +1,4 @@
+import { getEditDelta, type EditDelta } from '../edit-delta.js'
 import type { Action, RawSessionEvent, RuleResult } from '../types.js'
 import type { FileContent, RuleContext } from './contract.js'
 import { countNewTestNodes } from './matchers/count-new-test-nodes.js'
@@ -6,6 +7,8 @@ import { trimHistory, type HistoryWindow } from './trim-history.js'
 
 const DEFAULT_MAX_EVENTS = 10
 const DEFAULT_MAX_CONTENT_CHARS = 6000
+const MIN_POST_IMAGE_CHARS_FOR_EDIT_DELTA = 64 * 1024
+const MIN_EDIT_DELTA_REDUCTION_FACTOR = 4
 
 const PROCESS_INSTRUCTIONS = `## Role
 
@@ -179,15 +182,64 @@ function buildPrompt(
   historyBlock: string,
   before: FileContent,
   action: { path: string; content: string },
+  editProjection?: string,
 ): string {
   const sections = [PROCESS_INSTRUCTIONS, rules]
   if (historyBlock) sections.push(`## Recent session\n\n${historyBlock}`)
-  sections.push(`## Current file content\n\n${formatBefore(before)}`)
-  sections.push(
-    `## Pending action\n\nFile: ${action.path}\n\n${action.content}`,
-  )
+  if (editProjection) {
+    sections.push(
+      '## Current file content\n\n' +
+        '(unchanged surrounding content omitted; the Edit operation below was validated against the file on disk)',
+    )
+    sections.push(editProjection)
+  } else {
+    sections.push(`## Current file content\n\n${formatBefore(before)}`)
+    sections.push(
+      `## Pending action\n\nFile: ${action.path}\n\n${action.content}`,
+    )
+  }
   sections.push(RESPONSE_SPEC)
   return sections.join('\n\n')
+}
+
+function formatEditAction(path: string, delta: EditDelta): string {
+  const operation = delta.replaceAll
+    ? `replace all ${delta.occurrences} occurrences`
+    : 'replace one occurrence'
+  const descriptor = JSON.stringify({
+    file: path,
+    operation,
+    old_string: delta.oldString,
+    new_string: delta.newString,
+  })
+  return `## Pending action
+
+Validated Edit descriptor (JSON data):
+${descriptor}`
+}
+
+/**
+ * Project large, compact edits once. The length lower bound rejects giant
+ * descriptors without first allocating their JSON representation.
+ */
+function projectEditAction(
+  action: { path: string; content: string },
+  delta: EditDelta,
+): string | undefined {
+  if (action.content.length < MIN_POST_IMAGE_CHARS_FOR_EDIT_DELTA) return
+  const minimumProjectionChars =
+    action.path.length + delta.oldString.length + delta.newString.length
+  if (
+    minimumProjectionChars * MIN_EDIT_DELTA_REDUCTION_FACTOR >
+    action.content.length
+  ) {
+    return
+  }
+  const projection = formatEditAction(action.path, delta)
+  return projection.length * MIN_EDIT_DELTA_REDUCTION_FACTOR <=
+    action.content.length
+    ? projection
+    : undefined
 }
 
 function formatBefore(before: FileContent): string {
@@ -270,13 +322,18 @@ export function enforceTdd(
     ctx?: RuleContext,
   ): Promise<RuleResult> {
     if (action.kind !== 'write') return { kind: 'pass' }
-    const before: FileContent = (await ctx?.readFile?.(action.path)) ?? {
-      kind: 'unknown',
-    }
+    const attachedEditDelta = getEditDelta(action)
+    const editProjection = attachedEditDelta
+      ? projectEditAction(action, attachedEditDelta)
+      : undefined
+    const before: FileContent =
+      editProjection && !fastPath
+        ? { kind: 'unknown' }
+        : ((await ctx?.readFile?.(action.path)) ?? { kind: 'unknown' })
     if (fastPath && isSingleNewTest(action, before)) {
       return { kind: 'pass', notes: [{ kind: 'fast-path' }] }
     }
-    return validateWithAi(action, ctx, before, rules, window)
+    return validateWithAi(action, ctx, before, rules, window, editProjection)
   }
 }
 
@@ -302,6 +359,7 @@ async function validateWithAi(
   before: FileContent,
   rules: string,
   window: HistoryWindow,
+  editProjection?: string,
 ): Promise<RuleResult> {
   if (!ctx?.agent) {
     return {
@@ -313,7 +371,13 @@ async function validateWithAi(
   const events = (await ctx.rawHistory?.()) ?? []
   const windowed = trimHistory(events, window)
   const historyBlock = windowed.map(formatEvent).join('\n')
-  const prompt = buildPrompt(rules, historyBlock, before, action)
+  const prompt = buildPrompt(
+    rules,
+    historyBlock,
+    before,
+    action,
+    editProjection,
+  )
   const verdict = await ctx.agent.reason(prompt)
   if (verdict.kind === 'violation') {
     return { kind: 'violation', reason: verdict.reason }

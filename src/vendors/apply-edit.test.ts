@@ -26,7 +26,16 @@ describe('applyEdit', () => {
       newString: 'REPLACED',
     })
 
-    expect(result).toEqual({ ok: true, content: 'before\nREPLACED\nafter\n' })
+    expect(result).toEqual({
+      ok: true,
+      content: 'before\nREPLACED\nafter\n',
+      delta: {
+        oldString: 'MARKER',
+        newString: 'REPLACED',
+        replaceAll: false,
+        occurrences: 1,
+      },
+    })
   })
 
   it('fails closed when oldString does not appear in the file (no silent no-op)', async ({
@@ -76,6 +85,12 @@ describe('applyEdit', () => {
     expect(result).toEqual({
       ok: true,
       content: 'one REPLACED\ntwo REPLACED\nthree REPLACED\n',
+      delta: {
+        oldString: 'MARKER',
+        newString: 'REPLACED',
+        replaceAll: true,
+        occurrences: 3,
+      },
     })
   })
 
@@ -93,6 +108,12 @@ describe('applyEdit', () => {
     expect(result).toEqual({
       ok: true,
       content: 'first\nREPLACED\nlast\n',
+      delta: {
+        oldString: 'first\nMARKER\nlast',
+        newString: 'first\nREPLACED\nlast',
+        replaceAll: false,
+        occurrences: 1,
+      },
     })
   })
 
@@ -110,6 +131,12 @@ describe('applyEdit', () => {
     expect(result).toEqual({
       ok: true,
       content: 'first\nREPLACED\nlast\n',
+      delta: {
+        oldString: 'first\nMARKER\nlast',
+        newString: 'first\nREPLACED\nlast',
+        replaceAll: false,
+        occurrences: 1,
+      },
     })
   })
 
@@ -129,6 +156,12 @@ describe('applyEdit', () => {
     expect(result).toEqual({
       ok: true,
       content: `before\n${newString}\nafter\n`,
+      delta: {
+        oldString: 'MARKER',
+        newString,
+        replaceAll: false,
+        occurrences: 1,
+      },
     })
   })
 
@@ -148,6 +181,12 @@ describe('applyEdit', () => {
     expect(result).toEqual({
       ok: true,
       content: `one ${newString}\ntwo ${newString}\n`,
+      delta: {
+        oldString: 'MARKER',
+        newString,
+        replaceAll: true,
+        occurrences: 2,
+      },
     })
   })
 
