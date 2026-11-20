@@ -78,6 +78,132 @@ describe('toVerdict', () => {
     })
   })
 
+  it('flips a violation to pass when its own reason self-corrects at the end (real captured case: "Correction: pass.")', async () => {
+    const reason =
+      "The failing test asserts canonicalizePath resolves a path reaching an existing file through a symlinked ancestor. A minimal stub could make the symbol exist, but this write implements the full asserted behavior via realpathSync.native. However, the test path 'link/src' fully exists, so realpathSync.native alone satisfies exactly the observed assertion — that is the minimum. This is acceptable green. Correction: pass."
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict.kind).toBe('pass')
+  })
+
+  it('flips a violation to pass when its own reason self-corrects at the end (real captured case: "Correcting: ... a valid red step.")', async () => {
+    const reason =
+      'This write adds one new test that drives new production behavior. A test driving new behavior must be observed failing before it is added-to-drive... however, adding a single new red test is itself the red step and is allowed without observing it fail first. Correcting: this is a single new test, which is a valid red step.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict.kind).toBe('pass')
+  })
+
+  it('keeps a violation whose correction still names a violation', async () => {
+    const reason =
+      'At first I thought this was fine. Correction: this is actually a more serious violation than I first thought.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict).toEqual({ kind: 'violation', reason })
+  })
+
+  it('keeps a violation whose correction negates the pass-affirming word', async () => {
+    const reason = 'Correction: this is not valid as a stub, it goes further.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict).toEqual({ kind: 'violation', reason })
+  })
+
+  it('uses the last correction when an earlier one is itself reversed', async () => {
+    const reason =
+      'Correction: this is valid. Correction: no, on closer look it is still a violation.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict).toEqual({ kind: 'violation', reason })
+  })
+
+  it('keeps a violation with no correction language, unchanged', async () => {
+    const reason = 'No failing test drives this implementation.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict).toEqual({ kind: 'violation', reason })
+  })
+
+  it('never touches a pass verdict, regardless of its reason text', async () => {
+    const reason = 'Correction: actually this should be a violation.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'pass', reason }) }),
+    )
+
+    expect(verdict).toEqual({ kind: 'pass', reason })
+  })
+
+  it('is case-insensitive ("CORRECTING" as well as "Correction")', async () => {
+    const reason = 'CORRECTING: this is allowed after all.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict.kind).toBe('pass')
+  })
+
+  it('recognizes "on second thought ... fine" as a self-correction, not just "correction"', async () => {
+    const reason =
+      'This looks like over-implementation at first glance. Hold on, on second thought this is fine.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict.kind).toBe('pass')
+  })
+
+  it('recognizes "scratch that ... checks out" as a self-correction', async () => {
+    const reason =
+      'This looks like over-implementation at first glance. Hmm, scratch that, it actually checks out.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict.kind).toBe('pass')
+  })
+
+  it('recognizes "take that back — it is correct" as a self-correction', async () => {
+    const reason =
+      'This looks like over-implementation at first glance. No wait, I take that back — it is correct.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict.kind).toBe('pass')
+  })
+
+  it('recognizes "never mind, this holds up" as a self-correction', async () => {
+    const reason =
+      'This looks like over-implementation at first glance. Actually, never mind, this holds up after all.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict.kind).toBe('pass')
+  })
+
+  it('recognizes "walk that back ... no problem" as a self-correction', async () => {
+    const reason =
+      'This looks like over-implementation at first glance. Let me walk that back; there is no problem here.'
+    const verdict = await toVerdict(() =>
+      Promise.resolve({ text: JSON.stringify({ kind: 'violation', reason }) }),
+    )
+
+    expect(verdict.kind).toBe('pass')
+  })
+
   it('forwards AgentMeta from the response source onto the parsed verdict', async () => {
     const verdict = await toVerdict(() =>
       Promise.resolve({

@@ -49,7 +49,50 @@ function parseVerdict(text: string): Verdict {
       reason: `validator returned unexpected shape at ${where}: ${what}`,
     }
   }
-  return result.data
+  return reconcileSelfContradiction(result.data)
+}
+
+const CORRECTION_MARKER_RE =
+  /\bcorrect(ion|ing)\b|\bon second thought\b|\bscratch that\b|\btake (that|it) back\b|\bnever\s?mind\b|\bwalk (that|it) back\b/gi
+const AFFIRMS_PASS_RE =
+  /\b(pass(es)?|valid|allow(ed)?|fine|checks out|correct|holds up|no problem)\b/i
+const NEGATION_RE = /\b(not|n't|never|isn't|doesn't|wasn't|weren't)\b/i
+const NEGATION_WINDOW = 20
+
+/**
+ * A violation whose own reason ends with a correction that affirms
+ * pass is flipped to pass. The validator's response schema puts "kind"
+ * before "reason" with thinking disabled, so "reason" is the only
+ * place reasoning happens — but by the time it self-corrects there,
+ * "kind" is already committed. Reordering the schema to fix this at
+ * the source (reason before kind) was tried and measured: it more
+ * than tripled the error rate on an unrelated real judgment call
+ * (13% -> 57% over 30 trials each), so this reconciles after the
+ * fact instead, without touching how the model reasons at all.
+ */
+function reconcileSelfContradiction(verdict: Verdict): Verdict {
+  if (verdict.kind !== 'violation') return verdict
+  const marker = lastCorrectionMarker(verdict.reason)
+  if (!marker) return verdict
+  const tail = verdict.reason.slice(marker.index)
+  if (/violat/i.test(tail)) return verdict
+  const affirms = AFFIRMS_PASS_RE.exec(tail)
+  if (!affirms) return verdict
+  // The marker phrase itself starts the tail, so the negation lookback
+  // must not reach back into it (e.g. "never mind" as a marker would
+  // otherwise trip NEGATION_RE's own "never").
+  const searchStart = marker[0].length
+  const before = tail.slice(
+    Math.max(searchStart, affirms.index - NEGATION_WINDOW),
+    affirms.index,
+  )
+  if (NEGATION_RE.test(before)) return verdict
+  return { ...verdict, kind: 'pass' }
+}
+
+function lastCorrectionMarker(reason: string): RegExpMatchArray | undefined {
+  const markers = [...reason.matchAll(CORRECTION_MARKER_RE)]
+  return markers.at(-1)
 }
 
 /**
