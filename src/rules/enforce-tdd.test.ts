@@ -271,6 +271,26 @@ describe('enforce-tdd', () => {
     expect(s.capturedPrompt).toContain('shell({"command":"npx vitest run"})')
   })
 
+  it('bounds a large JSON tool input in recent history', async () => {
+    const s = setup({
+      maxContentChars: 1000,
+      rawHistory: [
+        {
+          kind: 'action',
+          tool: 'Edit',
+          input: { content: 'UNBOUNDED_INPUT'.repeat(10_000) },
+          output: 'ok',
+          toolUseId: 'tu_large_input',
+        },
+      ],
+    })
+
+    await s.rule(writeAction(), s.ctx)
+
+    expect(s.capturedPrompt).toContain('more characters truncated')
+    expect(s.capturedPrompt.length).toBeLessThan(12_000)
+  })
+
   it('limits the history block to the last maxEvents events', async () => {
     const events: RawSessionEvent[] = Array.from({ length: 15 }, (_, i) => ({
       kind: 'prompt' as const,

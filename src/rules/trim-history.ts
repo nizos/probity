@@ -3,7 +3,7 @@ import type { RawSessionEvent } from '../types.js'
 /**
  * Bounds on the recent-history window an AI rule includes in its prompt.
  * `maxEvents` caps the count (keeps the tail); `maxContentChars` caps
- * each event's text/output length (head + tail clip with an omission
+ * each event's text, formatted input, and output length (head + tail clip with an omission
  * marker in the middle).
  */
 export type HistoryWindow = {
@@ -30,8 +30,20 @@ function truncate(event: RawSessionEvent, max: number): RawSessionEvent {
     const text = clip(event.text, max)
     return text === event.text ? event : { ...event, text }
   }
+  const formattedInput = formatHistoryInput(event.input)
+  const input = clip(formattedInput, max)
   const output = clip(event.output, max)
-  return output === event.output ? event : { ...event, output }
+  if (input === formattedInput && output === event.output) return event
+  return {
+    ...event,
+    ...(input !== formattedInput && { input }),
+    ...(output !== event.output && { output }),
+  }
+}
+
+export function formatHistoryInput(input: unknown): string {
+  if (typeof input === 'string') return input
+  return JSON.stringify(input) ?? String(input)
 }
 
 function clip(s: string, max: number): string {
