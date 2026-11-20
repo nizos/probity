@@ -83,6 +83,71 @@ describe('actionMatchesFilesScope', () => {
     ).toBe(true)
   })
 
+  it('matches a write reported through a symlink against a glob anchored at the resolved path', () => {
+    expect(
+      actionMatchesFilesScope(
+        ['/real/src/**'],
+        { kind: 'write', path: '/link/src/foo.ts', content: '' },
+        (p) => p.replace('/link/', '/real/'),
+      ),
+    ).toBe(true)
+  })
+
+  it('keeps a write in scope when the symlink resolves out of the glob', () => {
+    expect(
+      actionMatchesFilesScope(
+        ['/real/src/**'],
+        { kind: 'write', path: '/real/src/linked/foo.ts', content: '' },
+        () => '/elsewhere/foo.ts',
+      ),
+    ).toBe(true)
+  })
+
+  it('keeps a negated subtree excluded for a write reached through a symlink', () => {
+    expect(
+      actionMatchesFilesScope(
+        ['/canon/src/**', '!/canon/src/generated/**'],
+        {
+          kind: 'write',
+          path: '/alias/src/generated/foo.ts',
+          content: '',
+        },
+        (p) => p.replace('/alias/', '/canon/'),
+      ),
+    ).toBe(false)
+  })
+
+  // An in-tree symlink can resolve an explicitly excluded reported path
+  // to an included canonical one; the block still applies. This is the
+  // accepted trade-off: an authoritative reported-path exclusion was
+  // tried and reverted (see git history) because it reopened a far more
+  // common fail-open — a workspace symlink like `node_modules/pkg` that
+  // resolves into `src/**` would silently skip a `!**/node_modules/**`
+  // exclusion meant for real vendor code.
+  it('applies the block when an in-tree symlink resolves an excluded reported path to an included one', () => {
+    expect(
+      actionMatchesFilesScope(
+        ['/repo/src/**', '!/repo/src/excluded/**'],
+        {
+          kind: 'write',
+          path: '/repo/src/excluded/link/foo.ts',
+          content: '',
+        },
+        () => '/repo/src/allowed/foo.ts',
+      ),
+    ).toBe(true)
+  })
+
+  it('applies the block when a workspace symlink resolves an excluded path into the included tree', () => {
+    expect(
+      actionMatchesFilesScope(
+        ['src/**/*.ts', '!**/node_modules/**'],
+        { kind: 'write', path: 'node_modules/pkg/foo.ts', content: '' },
+        () => 'src/foo.ts',
+      ),
+    ).toBe(true)
+  })
+
   it('returns false for a write whose path does not match the glob', () => {
     expect(
       actionMatchesFilesScope(['src/**'], {

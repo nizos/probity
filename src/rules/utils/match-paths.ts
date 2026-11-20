@@ -1,6 +1,7 @@
 import picomatch from 'picomatch'
 
 import type { Action } from '../../types.js'
+import { canonicalizePath } from '../../utils/canonicalize-path.js'
 
 /**
  * Builds a path matcher from include/exclude patterns. Patterns prefixed
@@ -33,12 +34,23 @@ export function buildMatcher(patterns: string[]): (path: string) => boolean {
  * matches nothing (runtime defense; the type forbids it). Non-write
  * actions pass the block-level filter and self-filter inside their
  * rules. Write actions are matched against `files` via `buildMatcher`.
+ *
+ * A write is tried both as reported and symlink-resolved, since the same
+ * file can arrive under either name. Trying both stops a rule from
+ * skipping the file, and keeps a symlink that points out of the project
+ * in scope — including a workspace symlink (e.g. a linked package under
+ * node_modules) that resolves into an included directory even though
+ * the reported path also matches a vendor-directory exclusion. Fail-open
+ * is the risk this exists to close, so a path is only out of scope when
+ * BOTH spellings agree it's excluded.
  */
 export function actionMatchesFilesScope(
   files: readonly string[],
   action: Action,
+  canonicalize: (p: string) => string = canonicalizePath,
 ): boolean {
   if (files.length === 0) return false
   if (action.kind !== 'write') return true
-  return buildMatcher([...files])(action.path)
+  const matches = buildMatcher([...files])
+  return matches(action.path) || matches(canonicalize(action.path))
 }
